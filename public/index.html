@@ -119,13 +119,20 @@
     gap: 18px;
     align-items: start;
   }
+  .model .rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 20px;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
   .model .co {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--dim);
-    padding-top: 3px;
   }
   .model .name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
   .model .name .ver { font-weight: 400; color: var(--dim); font-size: 14px; margin-left: 6px; }
@@ -141,6 +148,12 @@
   }
   .idxwrap { text-align: right; }
   .idxnum { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 22px; }
+  .idxmax {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    font-weight: 400;
+  }
   .idxlabel {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9.5px;
@@ -269,10 +282,14 @@ function renderModels(models) {
   $('modelsList').innerHTML = models
     .slice()
     .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
-    .map(m => {
+    .map((m, i) => {
+      const rank = i + 1;
       const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
       return `<div class="model">
-        <div class="co">${esc(m.co)}</div>
+        <div class="co">
+          <div class="rank">${rank}</div>
+          ${esc(m.co)}
+        </div>
         <div>
           <div class="name">${esc(m.model)}<span class="ver">${esc(m.ver)}</span></div>
           <div class="cap">${esc(m.cap)}</div>
@@ -285,7 +302,7 @@ function renderModels(models) {
           </div>
         </div>
         <div class="idxwrap">
-          <div class="idxnum">${idx || '·'}</div>
+          <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
           <div class="idxlabel">Intelligence index</div>
           <div class="idxbar"><i style="width:${idx}%"></i></div>
         </div>
