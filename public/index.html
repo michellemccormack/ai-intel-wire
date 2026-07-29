@@ -52,7 +52,13 @@
     color: var(--dim);
     margin-top: 8px;
   }
-  .head-right { text-align: right; }
+  .masthead .strap a { color: inherit; text-decoration: underline; }
+  .head-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
   .datestamp {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -63,10 +69,9 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     color: var(--dim);
-    margin-top: 4px;
   }
   #refreshBtn {
-    margin-top: 10px;
+    margin-top: 6px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
     letter-spacing: 0.1em;
@@ -201,6 +206,7 @@
     .model { grid-template-columns: 1fr; gap: 8px; }
     .idxwrap { text-align: left; }
     header { padding: 20px 16px 14px; }
+    .head-right { align-items: flex-start; }
     .model, .story { padding-left: 16px; padding-right: 16px; }
     .advice { padding: 32px 16px; }
   }
@@ -214,7 +220,8 @@
 <header>
   <div class="masthead">
     <h1>AI<span class="k">/</span>WIRE</h1>
-    <div class="strap">Frontier model index · Daily brief · Updated every morning · Built by <a href="https://michellemccormack.com" target="_blank" style="color:inherit;text-decoration:underline;">Michelle</a></div>
+    <div class="strap">Frontier model index · Daily brief · Updated every morning · Built by <a href="https://michellemccormack.com" target="_blank" rel="noopener">Michelle</a></div>
+  </div>
   <div class="head-right">
     <div class="datestamp" id="dateStamp"></div>
     <div class="updated" id="updatedStamp">Loading…</div>
