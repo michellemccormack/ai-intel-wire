@@ -14,7 +14,7 @@ Keep every value short. Valid JSON only. No newlines or tabs inside string value
 const newsPrompt = () =>
   `Search the web for today's AI industry news (today is ${new Date().toDateString()}). Respond with ONLY a JSON object, no prose, no markdown, keys exactly:
 "stories": array of the 5 most important AI news stories from the last 24-48 hours, each with: src (publication), head (headline, your own words), sum (2 sentence summary, your own words), why (one sentence: why it matters to a media founder and producer, max 20 words).
-"advice": object with: move (one specific, actionable way to use AI today for someone running a media brand and production company, one sentence, imperative voice), detail (2-3 sentences on exactly how to execute it).
+"advice": object with: move (one specific, actionable way to use AI TODAY to work faster, smarter, or more creatively, focused on productivity, workflow, decision-making, communication, research, or content creation, one sentence, imperative voice. Not about coding, software development, or building apps.), detail (2-3 sentences on exactly how to execute it as a busy operator/founder).
 Valid JSON only. No newlines or tabs inside string values.`;
 
 const MODELS = ["claude-sonnet-5", "claude-sonnet-4-6"];
