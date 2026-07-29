@@ -30,6 +30,13 @@
   header {
     border-bottom: 3px solid var(--ink);
     padding: 28px 24px 18px;
+  }
+  .shell {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  header .shell {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -85,7 +92,8 @@
   #refreshBtn:hover { background: var(--ink); }
   #refreshBtn:disabled { background: var(--dim); cursor: wait; }
   #refreshBtn:focus-visible, .tab:focus-visible { outline: 3px solid var(--klein); outline-offset: 2px; }
-  nav { display: flex; border-bottom: 1px solid var(--line); }
+  nav { border-bottom: 1px solid var(--line); }
+  nav .shell { display: flex; }
   .tab {
     flex: 1;
     background: none;
@@ -101,7 +109,12 @@
   }
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
-  main { padding: 0 0 60px; }
+  main {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 0 60px;
+  }
   section { display: none; }
   section.active { display: block; }
   .status {
@@ -223,6 +236,7 @@
 <body>
 
 <header>
+  <div class="shell">
   <div class="masthead">
     <h1>AI<span class="k">/</span>WIRE</h1>
     <div class="strap">Frontier model index · Daily brief · Updated every morning · Built by <a href="https://michellemccormack.com" target="_blank" rel="noopener">Michelle</a></div>
@@ -232,12 +246,15 @@
     <div class="updated" id="updatedStamp">Loading…</div>
     <button id="refreshBtn">Refresh brief</button>
   </div>
+  </div>
 </header>
 
 <nav>
+  <div class="shell">
   <button class="tab active" data-tab="models">Top Models</button>
   <button class="tab" data-tab="news">Top 5 News</button>
   <button class="tab" data-tab="advice">Today's Move</button>
+  </div>
 </nav>
 
 <main>
@@ -256,7 +273,9 @@
 </main>
 
 <footer>
+  <div class="shell">
   Intelligence Index: Artificial Analysis composite where available, otherwise an estimate from current benchmarks. Each update replaces the previous snapshot in full.
+  </div>
 </footer>
 
 <script>
