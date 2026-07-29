@@ -19,18 +19,9 @@ export default async (req) => {
     });
   }
   try {
-    const snapshot = await buildBrief();
-    return new Response(JSON.stringify({ ok: true, ts: snapshot.ts }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    await buildBrief();
+    console.log("Manual refresh complete");
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("Manual refresh failed:", e.message);
   }
-};
-
-export const config = {
-  path: "/api/refresh",
 };
