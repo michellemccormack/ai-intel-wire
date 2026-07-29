@@ -4,3 +4,13 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/brief"
+  to = "/.netlify/functions/brief"
+  status = 200
+
+[[redirects]]
+  from = "/api/refresh-background"
+  to = "/.netlify/functions/refresh-background"
+  status = 200
