@@ -17,7 +17,13 @@ const newsPrompt = () =>
 "advice": object with: move (one specific, actionable way to use AI today for someone running a media brand and production company, one sentence, imperative voice), detail (2-3 sentences on exactly how to execute it).
 Valid JSON only. No newlines or tabs inside string values.`;
 
-async function callClaude(prompt) {
+const MODELS = ["claude-sonnet-5", "claude-sonnet-4-6"];
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function callClaudeOnce(prompt, model) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -26,7 +32,7 @@ async function callClaude(prompt) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-5",
+      model,
       max_tokens: 4000,
       messages: [{ role: "user", content: prompt }],
       tools: [{ type: "web_search_20250305", name: "web_search" }],
@@ -34,7 +40,9 @@ async function callClaude(prompt) {
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
+    const err = new Error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
   }
   const data = await res.json();
   const text = data.content
@@ -63,21 +71,61 @@ async function callClaude(prompt) {
   return JSON.parse(out);
 }
 
+async function callClaude(prompt, label) {
+  const maxAttempts = 5;
+  let lastErr;
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await callClaudeOnce(prompt, model);
+        if (attempt > 1 || model !== MODELS[0]) {
+          console.log(`[${label}] succeeded on ${model} attempt ${attempt}`);
+        }
+        return result;
+      } catch (e) {
+        lastErr = e;
+        const retriable = e.status === 429 || e.status === 502 || e.status === 503 || e.status === 529 || !e.status;
+        console.warn(`[${label}] ${model} attempt ${attempt} failed: ${e.message.slice(0, 150)}`);
+        if (!retriable) break;
+        if (attempt < maxAttempts) {
+          const delay = Math.min(30000, 2000 * Math.pow(2, attempt - 1)) + Math.random() * 1000;
+          await sleep(delay);
+        }
+      }
+    }
+    console.warn(`[${label}] falling back to next model after ${model}`);
+  }
+  throw lastErr;
+}
+
 export async function buildBrief() {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY environment variable is not set");
   }
-  const [a, b, news] = await Promise.all([
-    callClaude(modelPrompt(COMPANIES_A)),
-    callClaude(modelPrompt(COMPANIES_B)),
-    callClaude(newsPrompt()),
+  console.log("Building brief…");
+  const results = await Promise.allSettled([
+    callClaude(modelPrompt(COMPANIES_A), "models-A"),
+    callClaude(modelPrompt(COMPANIES_B), "models-B"),
+    callClaude(newsPrompt(), "news"),
   ]);
+  const [aRes, bRes, newsRes] = results;
+  const store = getStore("aiwire");
+  const prior = (await store.get("snapshot", { type: "json" })) || { models: [], news: { stories: [], advice: {} } };
+  const modelsA = aRes.status === "fulfilled" ? aRes.value : null;
+  const modelsB = bRes.status === "fulfilled" ? bRes.value : null;
+  const news = newsRes.status === "fulfilled" ? newsRes.value : null;
+  if (!modelsA && !modelsB && !news) {
+    const errs = results.map((r) => (r.status === "rejected" ? r.reason?.message : "ok")).join(" | ");
+    throw new Error("All three calls failed: " + errs);
+  }
+  const combinedModels = [...(modelsA || []), ...(modelsB || [])];
   const snapshot = {
     ts: Date.now(),
-    models: [...a, ...b],
-    news,
+    models: combinedModels.length ? combinedModels : prior.models,
+    news: news || prior.news,
+    partial: !(modelsA && modelsB && news),
   };
-  const store = getStore("aiwire");
   await store.setJSON("snapshot", snapshot);
+  console.log(`Brief saved. models=${snapshot.models.length}, news=${snapshot.news?.stories?.length ?? 0}, partial=${snapshot.partial}`);
   return snapshot;
 }
