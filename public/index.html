@@ -33,8 +33,8 @@
   }
   .shell {
     max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
+    width: 100%;
+    margin: 0 auto;
   }
   header .shell {
     display: flex;
@@ -109,12 +109,7 @@
   }
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
-  main {
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 0 0 60px;
-  }
+  main { padding: 0 0 60px; }
   section { display: none; }
   section.active { display: block; }
   .status {
@@ -259,6 +254,7 @@
 </nav>
 
 <main>
+  <div class="shell">
   <section id="models" class="active">
     <div class="status" id="modelsStatus">Loading the model index…</div>
     <div id="modelsList"></div>
@@ -271,6 +267,7 @@
     <div class="status" id="adviceStatus"></div>
     <div id="adviceBox"></div>
   </section>
+  </div>
 </main>
 
 <footer>
