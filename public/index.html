@@ -26,7 +26,6 @@
     font-size: 15px;
     line-height: 1.45;
   }
-
   header {
     border-bottom: 3px solid var(--ink);
     padding: 28px 24px 18px;
@@ -85,7 +84,6 @@
   #refreshBtn:hover { background: var(--ink); }
   #refreshBtn:disabled { background: var(--dim); cursor: wait; }
   #refreshBtn:focus-visible, .tab:focus-visible { outline: 3px solid var(--klein); outline-offset: 2px; }
-
   nav { display: flex; border-bottom: 1px solid var(--line); }
   .tab {
     flex: 1;
@@ -102,11 +100,9 @@
   }
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
-
   main { padding: 0 0 60px; }
   section { display: none; }
   section.active { display: block; }
-
   .status {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -114,7 +110,6 @@
     padding: 24px;
   }
   .status.err { color: #B3261E; }
-
   .model {
     border-bottom: 1px solid var(--line);
     padding: 18px 24px;
@@ -154,7 +149,6 @@
   }
   .idxbar { margin-top: 8px; height: 6px; background: var(--klein-soft); position: relative; }
   .idxbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--klein); display: block; }
-
   .story { border-bottom: 1px solid var(--line); padding: 20px 24px; }
   .story .src {
     font-family: 'IBM Plex Mono', monospace;
@@ -174,7 +168,6 @@
     text-transform: uppercase;
     font-weight: 600;
   }
-
   .advice { padding: 48px 24px; max-width: 760px; }
   .advice .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
@@ -193,7 +186,6 @@
     padding-left: 20px;
   }
   .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
-
   footer {
     border-top: 1px solid var(--line);
     padding: 16px 24px;
@@ -201,7 +193,6 @@
     font-size: 10.5px;
     color: var(--dim);
   }
-
   @media (max-width: 720px) {
     .model { grid-template-columns: 1fr; gap: 8px; }
     .idxwrap { text-align: left; }
@@ -322,19 +313,21 @@ function renderNews(payload) {
 
 async function loadSnapshot() {
   try {
-    const res = await fetch('/api/brief');
+    const res = await fetch('/api/brief', { cache: 'no-store' });
     if (!res.ok) {
       $('modelsStatus').textContent = 'No brief published yet. First refresh pending.';
       $('updatedStamp').textContent = 'Not yet updated';
-      return;
+      return null;
     }
     const snap = await res.json();
     if (snap.models) renderModels(snap.models);
     if (snap.news) renderNews(snap.news);
     $('updatedStamp').textContent = 'Last updated ' + new Date(snap.ts).toLocaleString();
+    return snap;
   } catch (e) {
     $('modelsStatus').textContent = 'Could not load the brief. Try again shortly.';
     $('modelsStatus').classList.add('err');
+    return null;
   }
 }
 
@@ -345,21 +338,48 @@ async function manualRefresh() {
   btn.disabled = true;
   btn.textContent = 'Refreshing…';
   $('modelsStatus').classList.remove('err');
-  $('modelsStatus').textContent = 'Rebuilding the brief. Takes about a minute.';
+  $('modelsStatus').textContent = 'Rebuild started. Checking back in about 90 seconds…';
+  const startingSnap = await (await fetch('/api/brief', { cache: 'no-store' }).catch(() => null)?.json?.() ?? Promise.resolve({ ts: 0 }));
+  const startingTs = startingSnap?.ts || 0;
   try {
-    const res = await fetch('/api/refresh', {
+    const res = await fetch('/api/refresh-background', {
       method: 'POST',
       headers: { 'x-refresh-key': key }
     });
-    const out = await res.json();
-    if (!res.ok) throw new Error(out.error || 'Refresh failed');
-    await loadSnapshot();
+    if (res.status === 401) throw new Error('Wrong passphrase');
+    if (res.status !== 202 && !res.ok) throw new Error('Refresh failed to start');
   } catch (e) {
     $('modelsStatus').textContent = e.message;
     $('modelsStatus').classList.add('err');
+    btn.disabled = false;
+    btn.textContent = 'Refresh brief';
+    return;
   }
-  btn.disabled = false;
-  btn.textContent = 'Refresh brief';
+  const startedAt = Date.now();
+  const poll = async () => {
+    try {
+      const r = await fetch('/api/brief', { cache: 'no-store' });
+      if (r.ok) {
+        const snap = await r.json();
+        if (snap.ts && snap.ts > startingTs) {
+          if (snap.models) renderModels(snap.models);
+          if (snap.news) renderNews(snap.news);
+          $('updatedStamp').textContent = 'Last updated ' + new Date(snap.ts).toLocaleString();
+          btn.disabled = false;
+          btn.textContent = 'Refresh brief';
+          return;
+        }
+      }
+    } catch (e) {}
+    if (Date.now() - startedAt < 5 * 60 * 1000) {
+      setTimeout(poll, 10000);
+    } else {
+      $('modelsStatus').textContent = 'Refresh is taking longer than expected. Reload the page in a minute.';
+      btn.disabled = false;
+      btn.textContent = 'Refresh brief';
+    }
+  };
+  setTimeout(poll, 15000);
 }
 
 $('refreshBtn').addEventListener('click', manualRefresh);
