@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI/WIRE</title>
+<meta name="description" content="Daily frontier AI model index and news brief.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #101014;
+    --paper: #FFFFFF;
+    --ghost: #F2F3F1;
+    --line: #E3E4E0;
+    --klein: #2427D6;
+    --klein-soft: #E9EAFB;
+    --dim: #6B6C70;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Archivo', sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  header {
+    border-bottom: 3px solid var(--ink);
+    padding: 28px 24px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .masthead h1 {
+    font-weight: 900;
+    font-stretch: 115%;
+    font-size: clamp(34px, 6vw, 54px);
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+  }
+  .masthead h1 .k { color: var(--klein); }
+  .masthead .strap {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-top: 8px;
+  }
+  .head-right { text-align: right; }
+  .datestamp {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .updated {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  #refreshBtn {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--klein);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    cursor: pointer;
+  }
+  #refreshBtn:hover { background: var(--ink); }
+  #refreshBtn:disabled { background: var(--dim); cursor: wait; }
+  #refreshBtn:focus-visible, .tab:focus-visible { outline: 3px solid var(--klein); outline-offset: 2px; }
+
+  nav { display: flex; border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 14px 8px;
+    cursor: pointer;
+    color: var(--dim);
+  }
+  .tab:last-child { border-right: none; }
+  .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
+
+  main { padding: 0 0 60px; }
+  section { display: none; }
+  section.active { display: block; }
+
+  .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    padding: 24px;
+  }
+  .status.err { color: #B3261E; }
+
+  .model {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: 150px 1fr 180px;
+    gap: 18px;
+    align-items: start;
+  }
+  .model .co {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding-top: 3px;
+  }
+  .model .name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
+  .model .name .ver { font-weight: 400; color: var(--dim); font-size: 14px; margin-left: 6px; }
+  .model .cap { margin-top: 3px; }
+  .model .new { margin-top: 6px; font-size: 13px; color: var(--dim); }
+  .specs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .spec {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    background: var(--ghost);
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+  .idxwrap { text-align: right; }
+  .idxnum { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 22px; }
+  .idxlabel {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .idxbar { margin-top: 8px; height: 6px; background: var(--klein-soft); position: relative; }
+  .idxbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--klein); display: block; }
+
+  .story { border-bottom: 1px solid var(--line); padding: 20px 24px; }
+  .story .src {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--klein);
+  }
+  .story h3 { font-weight: 800; font-size: 19px; letter-spacing: -0.01em; margin: 4px 0 6px; }
+  .story p { max-width: 640px; }
+  .story .why { margin-top: 8px; font-size: 13px; color: var(--dim); max-width: 640px; }
+  .story .why b {
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .advice { padding: 48px 24px; max-width: 760px; }
+  .advice .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--klein);
+    margin-bottom: 14px;
+  }
+  .advice blockquote {
+    font-weight: 700;
+    font-size: clamp(20px, 3.4vw, 28px);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    border-left: 4px solid var(--klein);
+    padding-left: 20px;
+  }
+  .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 16px 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--dim);
+  }
+
+  @media (max-width: 720px) {
+    .model { grid-template-columns: 1fr; gap: 8px; }
+    .idxwrap { text-align: left; }
+    header { padding: 20px 16px 14px; }
+    .model, .story { padding-left: 16px; padding-right: 16px; }
+    .advice { padding: 32px 16px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .idxbar i { transition: width 600ms ease; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="masthead">
+    <h1>AI<span class="k">/</span>WIRE</h1>
+    <div class="strap">Frontier model index · Daily brief · Updated every morning</div>
+  </div>
+  <div class="head-right">
+    <div class="datestamp" id="dateStamp"></div>
+    <div class="updated" id="updatedStamp">Loading…</div>
+    <button id="refreshBtn">Refresh brief</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="models">Models</button>
+  <button class="tab" data-tab="news">Top 5 News</button>
+  <button class="tab" data-tab="advice">Today's Move</button>
+</nav>
+
+<main>
+  <section id="models" class="active">
+    <div class="status" id="modelsStatus">Loading the model index…</div>
+    <div id="modelsList"></div>
+  </section>
+  <section id="news">
+    <div class="status" id="newsStatus"></div>
+    <div id="newsList"></div>
+  </section>
+  <section id="advice">
+    <div class="status" id="adviceStatus"></div>
+    <div id="adviceBox"></div>
+  </section>
+</main>
+
+<footer>
+  Intelligence Index: Artificial Analysis composite where available, otherwise an estimate from current benchmarks. Each update replaces the previous snapshot in full.
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('section').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    $(t.dataset.tab).classList.add('active');
+  });
+});
+
+$('dateStamp').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderModels(models) {
+  $('modelsStatus').textContent = '';
+  $('modelsList').innerHTML = models
+    .slice()
+    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
+    .map(m => {
+      const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
+      return `<div class="model">
+        <div class="co">${esc(m.co)}</div>
+        <div>
+          <div class="name">${esc(m.model)}<span class="ver">${esc(m.ver)}</span></div>
+          <div class="cap">${esc(m.cap)}</div>
+          <div class="new">${esc(m.new)}</div>
+          <div class="specs">
+            <span class="spec">REL ${esc(m.date)}</span>
+            <span class="spec">${esc(m.mode)}</span>
+            <span class="spec">CTX ${esc(m.ctx)}</span>
+            <span class="spec">${esc(m.access)}</span>
+          </div>
+        </div>
+        <div class="idxwrap">
+          <div class="idxnum">${idx || '·'}</div>
+          <div class="idxlabel">Intelligence index</div>
+          <div class="idxbar"><i style="width:${idx}%"></i></div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function renderNews(payload) {
+  $('newsStatus').textContent = '';
+  $('newsList').innerHTML = (payload.stories || []).map(s =>
+    `<div class="story">
+      <div class="src">${esc(s.src)}</div>
+      <h3>${esc(s.head)}</h3>
+      <p>${esc(s.sum)}</p>
+      <div class="why"><b>Why it matters</b> · ${esc(s.why)}</div>
+    </div>`).join('');
+  const a = payload.advice || {};
+  $('adviceStatus').textContent = '';
+  $('adviceBox').innerHTML =
+    `<div class="advice">
+      <div class="eyebrow">Today's move</div>
+      <blockquote>${esc(a.move)}</blockquote>
+      <div class="detail">${esc(a.detail)}</div>
+    </div>`;
+}
+
+async function loadSnapshot() {
+  try {
+    const res = await fetch('/api/brief');
+    if (!res.ok) {
+      $('modelsStatus').textContent = 'No brief published yet. First refresh pending.';
+      $('updatedStamp').textContent = 'Not yet updated';
+      return;
+    }
+    const snap = await res.json();
+    if (snap.models) renderModels(snap.models);
+    if (snap.news) renderNews(snap.news);
+    $('updatedStamp').textContent = 'Last updated ' + new Date(snap.ts).toLocaleString();
+  } catch (e) {
+    $('modelsStatus').textContent = 'Could not load the brief. Try again shortly.';
+    $('modelsStatus').classList.add('err');
+  }
+}
+
+async function manualRefresh() {
+  const key = prompt('Editor passphrase:');
+  if (!key) return;
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  $('modelsStatus').classList.remove('err');
+  $('modelsStatus').textContent = 'Rebuilding the brief. Takes about a minute.';
+  try {
+    const res = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'x-refresh-key': key }
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || 'Refresh failed');
+    await loadSnapshot();
+  } catch (e) {
+    $('modelsStatus').textContent = e.message;
+    $('modelsStatus').classList.add('err');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Refresh brief';
+}
+
+$('refreshBtn').addEventListener('click', manualRefresh);
+loadSnapshot();
+</script>
+</body>
+</html>
