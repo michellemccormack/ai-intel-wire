@@ -256,7 +256,7 @@
   <div class="shell">
   <button class="tab active" data-tab="models">Top Models</button>
   <button class="tab" data-tab="news">Top 5 News</button>
-  <button class="tab" data-tab="advice">Today's Move</button>
+  <button class="tab" data-tab="advice">Today's Assignment</button>
   </div>
 </nav>
 
@@ -355,7 +355,7 @@ function renderNews(payload) {
   $('adviceStatus').textContent = '';
   $('adviceBox').innerHTML =
     `<div class="advice">
-      <div class="eyebrow">Today's move</div>
+      <div class="eyebrow">Today's Assignment</div>
       <blockquote>${esc(a.move)}</blockquote>
       <div class="detail">${esc(a.detail)}</div>
     </div>`;
