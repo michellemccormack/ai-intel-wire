@@ -182,6 +182,12 @@
     color: var(--klein);
   }
   .story h3 { font-weight: 800; font-size: 19px; letter-spacing: -0.01em; margin: 4px 0 6px; }
+  .story h3 a {
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+  }
+  .story h3 a:hover { text-decoration: underline; }
   .story p { max-width: 640px; }
   .story .why { margin-top: 8px; font-size: 13px; color: var(--dim); max-width: 640px; }
   .story .why b {
@@ -334,13 +340,17 @@ function renderModels(models) {
 
 function renderNews(payload) {
   $('newsStatus').textContent = '';
-  $('newsList').innerHTML = (payload.stories || []).map(s =>
-    `<div class="story">
+  $('newsList').innerHTML = (payload.stories || []).map(s => {
+    const head = s.url
+      ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.head)}</a>`
+      : esc(s.head);
+    return `<div class="story">
       <div class="src">${esc(s.src)}</div>
-      <h3>${esc(s.head)}</h3>
+      <h3>${head}</h3>
       <p>${esc(s.sum)}</p>
       <div class="why"><b>Why it matters</b> · ${esc(s.why)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const a = payload.advice || {};
   $('adviceStatus').textContent = '';
   $('adviceBox').innerHTML =
