@@ -1,6 +1,7 @@
 import { buildBrief } from "./lib/build-brief.mjs";
 
 export default async (req) => {
+  console.log("REFRESH STARTED");
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -24,4 +25,5 @@ export default async (req) => {
   } catch (e) {
     console.error("Manual refresh failed:", e.message);
   }
+  console.log("REFRESH FINISHED");
 };
