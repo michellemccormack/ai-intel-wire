@@ -402,12 +402,20 @@ async function manualRefresh() {
   } catch (_) {}
 
   try {
-    const res = await fetch('/api/refresh-background', {
+    // Sync gate validates passphrase and returns real 401s; it then kicks the background worker.
+    const res = await fetch('/api/refresh', {
       method: 'POST',
       headers: { 'x-refresh-key': key }
     });
-    // Background functions always return 202 on invoke; auth runs inside the worker.
-    if (res.status !== 202 && !res.ok) throw new Error('Refresh failed to start');
+    if (res.status === 401) throw new Error('Wrong passphrase');
+    if (res.status !== 202 && !res.ok) {
+      let detail = 'Refresh failed to start';
+      try {
+        const body = await res.json();
+        if (body?.error) detail = body.error;
+      } catch (_) {}
+      throw new Error(detail);
+    }
   } catch (e) {
     $('modelsStatus').textContent = e.message;
     $('modelsStatus').classList.add('err');

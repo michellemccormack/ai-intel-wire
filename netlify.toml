@@ -11,6 +11,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/refresh"
+  to = "/.netlify/functions/refresh"
+  status = 200
+
+[[redirects]]
   from = "/api/refresh-background"
   to = "/.netlify/functions/refresh-background"
   status = 200
