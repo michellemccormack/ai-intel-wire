@@ -342,7 +342,7 @@ function renderNews(payload) {
   $('newsStatus').textContent = '';
   $('newsList').innerHTML = (payload.stories || []).map(s => {
     const head = s.url
-      ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.head)}</a>`
+      ? `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.head)}</a>`
       : esc(s.head);
     return `<div class="story">
       <div class="src">${esc(s.src)}</div>
@@ -389,14 +389,24 @@ async function manualRefresh() {
   btn.textContent = 'Refreshing…';
   $('modelsStatus').classList.remove('err');
   $('modelsStatus').textContent = 'Rebuild started. Checking back in about 90 seconds…';
-  const startingSnap = await (await fetch('/api/brief', { cache: 'no-store' }).catch(() => null)?.json?.() ?? Promise.resolve({ ts: 0 }));
-  const startingTs = startingSnap?.ts || 0;
+
+  // Capture current snapshot ts BEFORE invoking refresh. (Do not optional-chain
+  // .json() off the fetch Promise — that never reads the response body.)
+  let startingTs = 0;
+  try {
+    const briefRes = await fetch('/api/brief', { cache: 'no-store' });
+    if (briefRes.ok) {
+      const startingSnap = await briefRes.json();
+      startingTs = startingSnap?.ts || 0;
+    }
+  } catch (_) {}
+
   try {
     const res = await fetch('/api/refresh-background', {
       method: 'POST',
       headers: { 'x-refresh-key': key }
     });
-    if (res.status === 401) throw new Error('Wrong passphrase');
+    // Background functions always return 202 on invoke; auth runs inside the worker.
     if (res.status !== 202 && !res.ok) throw new Error('Refresh failed to start');
   } catch (e) {
     $('modelsStatus').textContent = e.message;
@@ -415,6 +425,7 @@ async function manualRefresh() {
           if (snap.models) renderModels(snap.models);
           if (snap.news) renderNews(snap.news);
           $('updatedStamp').textContent = 'Last updated ' + new Date(snap.ts).toLocaleString();
+          $('modelsStatus').textContent = '';
           btn.disabled = false;
           btn.textContent = 'Refresh brief';
           return;
@@ -424,7 +435,8 @@ async function manualRefresh() {
     if (Date.now() - startedAt < 5 * 60 * 1000) {
       setTimeout(poll, 10000);
     } else {
-      $('modelsStatus').textContent = 'Refresh is taking longer than expected. Reload the page in a minute.';
+      $('modelsStatus').textContent = 'Refresh did not publish a new brief. Check passphrase, function logs, and env vars (AA_API_KEY, NEWSAPI_KEY, ANTHROPIC_API_KEY).';
+      $('modelsStatus').classList.add('err');
       btn.disabled = false;
       btn.textContent = 'Refresh brief';
     }

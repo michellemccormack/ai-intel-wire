@@ -2,28 +2,31 @@ import { buildBrief } from "./lib/build-brief.mjs";
 
 export default async (req) => {
   console.log("REFRESH STARTED");
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-  const secret = process.env.REFRESH_SECRET;
-  if (!secret) {
-    return new Response(JSON.stringify({ error: "REFRESH_SECRET is not set" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  const provided = req.headers.get("x-refresh-key") || "";
-  if (provided !== secret) {
-    return new Response(JSON.stringify({ error: "Wrong passphrase" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
   try {
+    if (req.method !== "POST") {
+      console.log("REFRESH REJECTED: method", req.method);
+      return;
+    }
+    const secret = process.env.REFRESH_SECRET;
+    if (!secret) {
+      console.error("REFRESH REJECTED: REFRESH_SECRET is not set");
+      return;
+    }
+    const provided = req.headers.get("x-refresh-key") || "";
+    if (provided !== secret) {
+      console.error("REFRESH REJECTED: wrong passphrase");
+      return;
+    }
+    console.log("REFRESH AUTH OK — building brief…");
     await buildBrief();
     console.log("Manual refresh complete");
   } catch (e) {
     console.error("Manual refresh failed:", e.message);
+  } finally {
+    console.log("REFRESH FINISHED");
   }
-  console.log("REFRESH FINISHED");
+};
+
+export const config = {
+  background: true,
 };

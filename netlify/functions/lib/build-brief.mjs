@@ -162,8 +162,13 @@ async function callClaude(prompt, { model, webSearch = false, maxTokens = 2000, 
 
 /** Fetch top models from Artificial Analysis (not Claude). */
 export async function fetchModelsFromAA() {
-  const headers = { Accept: "application/json" };
-  if (process.env.AA_API_KEY) headers["x-api-key"] = process.env.AA_API_KEY;
+  if (!process.env.AA_API_KEY) {
+    throw new Error("AA_API_KEY environment variable is not set");
+  }
+  const headers = {
+    Accept: "application/json",
+    "x-api-key": process.env.AA_API_KEY,
+  };
 
   const res = await fetch(AA_MODELS_URL, { headers });
   if (!res.ok) {
