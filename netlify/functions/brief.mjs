@@ -1,7 +1,7 @@
 import { getStore } from "@netlify/blobs";
 
 export default async () => {
-  const store = getStore("aiwire");
+  const store = getStore(process.env.BLOB_STORE_NAME || "aiwire");
   const snapshot = await store.get("snapshot", { type: "json" });
   if (!snapshot) {
     return new Response(JSON.stringify({ error: "No snapshot yet. Run a refresh." }), {

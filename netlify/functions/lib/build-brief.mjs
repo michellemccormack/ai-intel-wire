@@ -1,55 +1,73 @@
 import { getStore } from "@netlify/blobs";
 
-const COMPANIES_A =
-  "OpenAI, Anthropic, Google DeepMind, Meta AI, xAI, Mistral, DeepSeek, Alibaba Qwen, Amazon, Microsoft";
-const COMPANIES_B =
-  "NVIDIA, Moonshot AI (Kimi), Zhipu AI (GLM), MiniMax, ByteDance (Doubao/Seed), Cohere, Perplexity, Black Forest Labs, Runway, ElevenLabs";
+const AA_MODELS_URL = "https://artificialanalysis.ai/api/v2/data/llms/models";
+const NEWSAPI_URL = "https://newsapi.org/v2/everything";
+const NEWS_MODEL = "claude-sonnet-4-6";
+const ASSIGNMENT_MODEL = "claude-sonnet-5";
 
-const modelPrompt = (companies) =>
-  `Search the web for the CURRENT latest flagship or newest AI model release from each of these companies: ${companies}. Today is ${new Date().toDateString()}. For each company return its single most important current model (the latest flagship, or the newest notable release if newer).
-Respond with ONLY a JSON array, no prose, no markdown. Each object, keys exactly:
-co (company), model (model name), ver (version string), date (release date, e.g. "Jun 2026"), cap (primary capability, max 6 words), mode (modalities, e.g. "text+image+audio"), ctx (context window, e.g. "1M"), access (e.g. "API", "open weights", "app"), idx (Artificial Analysis Intelligence Index 0-100, or your best estimate as a number), new (what changed in this release, max 12 words).
-Keep every value short. Valid JSON only. No newlines or tabs inside string values.`;
-
-const newsPrompt = () =>
-  `Search the web for today's AI industry news (today is ${new Date().toDateString()}). Respond with ONLY a JSON object, no prose, no markdown, keys exactly:
-"stories": array of the 5 most important AI news stories from the last 24-48 hours, chosen to represent a diverse mix. Include at most one story about any single company. Cover a variety of angles: at least one on a new model or product release, at least one on business/funding/M&A, at least one on regulation, policy, or safety, at least one on research or a technical breakthrough, and at least one on culture, industry moves, or how AI is being used in the real world. Prefer newer, less-covered stories over the same dominant headline everyone is running. Each story includes: src (publication), head (headline, your own words), sum (2 sentence summary, your own words), url (direct URL to the original article), why (one sentence: why it matters to a media founder and producer, max 20 words).
-"advice": object with: move (one specific, actionable way to use AI TODAY to work faster, smarter, or more creatively, focused on productivity, workflow, decision-making, communication, research, or content creation, one sentence, imperative voice. Not about coding, software development, or building apps.), detail (2-3 sentences on exactly how to execute it as a busy operator/founder).
-Valid JSON only. No newlines or tabs inside string values.`;
-
-const MODELS = ["claude-sonnet-5", "claude-sonnet-4-6"];
+function blobStore() {
+  return getStore(process.env.BLOB_STORE_NAME || "aiwire");
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function callClaudeOnce(prompt, model) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4000,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    const err = new Error(`Anthropic API ${res.status}: ${body.slice(0, 300)}`);
-    err.status = res.status;
-    throw err;
+function formatContextWindow(tokens) {
+  const n = Number(tokens);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1).replace(/\.0$/, "")}M`;
   }
-  const data = await res.json();
-  const text = data.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  const clean = text.replace(/```json|```/g, "").trim();
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return `${Number.isInteger(k) ? k : k.toFixed(0)}K`;
+  }
+  return String(n);
+}
+
+function formatReleaseDate(raw) {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return String(raw);
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+function modalityLabel(modality) {
+  if (!modality) return "text generation";
+  if (typeof modality === "string") {
+    const m = modality.toLowerCase();
+    if (m.includes("image") || m.includes("audio") || m.includes("video") || m.includes("+")) {
+      return "multimodal reasoning";
+    }
+    if (m.includes("code")) return "code generation";
+    return "text generation";
+  }
+  if (typeof modality === "object") {
+    const parts = [];
+    for (const [k, v] of Object.entries(modality)) {
+      if (v) parts.push(k);
+    }
+    if (parts.some((p) => /image|audio|video|vision/i.test(p))) return "multimodal reasoning";
+  }
+  return "text generation";
+}
+
+function formatModality(modality) {
+  if (!modality) return "text";
+  if (typeof modality === "string") return modality;
+  if (typeof modality === "object") {
+    const parts = Object.entries(modality)
+      .filter(([, v]) => v)
+      .map(([k]) => k.replace(/_/g, ""));
+    return parts.length ? parts.join("+") : "text";
+  }
+  return "text";
+}
+
+function parseJsonFromText(text) {
+  const clean = String(text || "").replace(/```json|```/g, "").trim();
   const iArr = clean.indexOf("[");
   const iObj = clean.indexOf("{");
   const i = iArr === -1 ? iObj : iObj === -1 ? iArr : Math.min(iArr, iObj);
@@ -57,45 +75,219 @@ async function callClaudeOnce(prompt, model) {
   const closer = clean[i] === "[" ? "]" : "}";
   const raw = clean.slice(i, clean.lastIndexOf(closer) + 1);
   let out = "";
-  let inStr = false, esc = false;
+  let inStr = false;
+  let esc = false;
   for (const ch of raw) {
-    if (esc) { out += ch; esc = false; continue; }
-    if (ch === "\\") { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
-    if (inStr && ch === "\n") { out += "\\n"; continue; }
-    if (inStr && ch === "\r") { out += "\\r"; continue; }
-    if (inStr && ch === "\t") { out += "\\t"; continue; }
+    if (esc) {
+      out += ch;
+      esc = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      esc = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      out += ch;
+      continue;
+    }
+    if (inStr && ch === "\n") {
+      out += "\\n";
+      continue;
+    }
+    if (inStr && ch === "\r") {
+      out += "\\r";
+      continue;
+    }
+    if (inStr && ch === "\t") {
+      out += "\\t";
+      continue;
+    }
     if (inStr && ch.charCodeAt(0) < 0x20) continue;
     out += ch;
   }
   return JSON.parse(out);
 }
 
-async function callClaude(prompt, label) {
+async function callClaude(prompt, { model, webSearch = false, maxTokens = 2000, label = "claude" } = {}) {
   const maxAttempts = 5;
   let lastErr;
-  for (const model of MODELS) {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const result = await callClaudeOnce(prompt, model);
-        if (attempt > 1 || model !== MODELS[0]) {
-          console.log(`[${label}] succeeded on ${model} attempt ${attempt}`);
-        }
-        return result;
-      } catch (e) {
-        lastErr = e;
-        const retriable = e.status === 429 || e.status === 502 || e.status === 503 || e.status === 529 || !e.status;
-        console.warn(`[${label}] ${model} attempt ${attempt} failed: ${e.message.slice(0, 150)}`);
-        if (!retriable) break;
-        if (attempt < maxAttempts) {
-          const delay = Math.min(30000, 2000 * Math.pow(2, attempt - 1)) + Math.random() * 1000;
-          await sleep(delay);
-        }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const body = {
+        model,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }],
+      };
+      if (webSearch) {
+        body.tools = [{ type: "web_search_20250305", name: "web_search" }];
       }
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        const err = new Error(`Anthropic API ${res.status}: ${errBody.slice(0, 300)}`);
+        err.status = res.status;
+        throw err;
+      }
+      const data = await res.json();
+      const text = (data.content || [])
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+      const parsed = parseJsonFromText(text);
+      if (attempt > 1) console.log(`[${label}] succeeded on attempt ${attempt}`);
+      return parsed;
+    } catch (e) {
+      lastErr = e;
+      const retriable =
+        e.status === 429 || e.status === 502 || e.status === 503 || e.status === 529 || !e.status;
+      console.warn(`[${label}] attempt ${attempt} failed: ${e.message.slice(0, 150)}`);
+      if (!retriable || attempt === maxAttempts) break;
+      const delay = Math.min(30000, 2000 * Math.pow(2, attempt - 1)) + Math.random() * 1000;
+      await sleep(delay);
     }
-    console.warn(`[${label}] falling back to next model after ${model}`);
   }
   throw lastErr;
+}
+
+/** Fetch top models from Artificial Analysis (not Claude). */
+export async function fetchModelsFromAA() {
+  const headers = { Accept: "application/json" };
+  if (process.env.AA_API_KEY) headers["x-api-key"] = process.env.AA_API_KEY;
+
+  const res = await fetch(AA_MODELS_URL, { headers });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Artificial Analysis API ${res.status}: ${body.slice(0, 300)}`);
+  }
+
+  const payload = await res.json();
+  const rows = Array.isArray(payload) ? payload : payload.data || payload.models || [];
+
+  const models = rows
+    .map((m) => {
+      const idx = m?.evaluations?.artificial_analysis_intelligence_index;
+      if (idx == null || !Number.isFinite(Number(idx))) return null;
+      const modality = m.modality ?? m.modalities ?? null;
+      const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
+      return {
+        co: m.model_creator?.name || m.creator?.name || "Unknown",
+        model: m.name || "",
+        ver: m.version || m.slug || "",
+        date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
+        cap: modalityLabel(modality),
+        mode: formatModality(modality),
+        ctx: formatContextWindow(ctxTokens),
+        access: m.access || m.licensing?.type || "API",
+        idx: Math.round(Number(idx)),
+        new: "",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.idx - a.idx)
+    .slice(0, 20);
+
+  if (!models.length) throw new Error("Artificial Analysis returned no models with intelligence index");
+  console.log(`AA models fetched: ${models.length}`);
+  return models;
+}
+
+/** Fetch recent AI headlines from NewsAPI, then pick/format top 5 via Claude. */
+export async function fetchNewsFromNewsAPI() {
+  if (!process.env.NEWSAPI_KEY) {
+    throw new Error("NEWSAPI_KEY environment variable is not set");
+  }
+
+  const from = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const params = new URLSearchParams({
+    q: '("AI" OR "artificial intelligence" OR "LLM") AND (release OR launch OR funding OR breakthrough OR regulation)',
+    sortBy: "publishedAt",
+    language: "en",
+    pageSize: "20",
+    from,
+    apiKey: process.env.NEWSAPI_KEY,
+  });
+
+  const res = await fetch(`${NEWSAPI_URL}?${params}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`NewsAPI ${res.status}: ${body.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const articles = (data.articles || [])
+    .filter((a) => a?.title && a?.url)
+    .slice(0, 20)
+    .map((a) => ({
+      title: a.title,
+      source: a.source?.name || "Unknown",
+      url: a.url,
+    }));
+
+  if (!articles.length) throw new Error("NewsAPI returned no articles");
+
+  const prompt = `From these 20 recent AI news headlines, pick the 5 most important representing diverse angles (product release, business/funding, regulation, research, culture). Return JSON only, no prose. Each story: src (publication name), head (original headline), sum (2 sentence summary based on the headline), url (original URL), why (one sentence why it matters to a media founder, max 20 words).
+
+Headlines:
+${JSON.stringify(articles)}`;
+
+  const parsed = await callClaude(prompt, {
+    model: NEWS_MODEL,
+    webSearch: false,
+    maxTokens: 2500,
+    label: "news",
+  });
+
+  const stories = Array.isArray(parsed) ? parsed : parsed.stories;
+  if (!Array.isArray(stories) || stories.length < 1) {
+    throw new Error("Claude news formatting returned no stories");
+  }
+
+  const byUrl = new Map(articles.map((a) => [a.url, a]));
+  const normalized = stories.slice(0, 5).map((s) => {
+    const match = byUrl.get(s.url) || articles.find((a) => a.title === s.head);
+    return {
+      src: s.src || match?.source || "Unknown",
+      head: s.head || match?.title || "",
+      sum: s.sum || "",
+      url: s.url || match?.url || "",
+      why: s.why || "",
+    };
+  });
+
+  console.log(`News stories formatted: ${normalized.length}`);
+  return { stories: normalized };
+}
+
+/** Today's Assignment — Claude Sonnet 5 with web search, callable independently. */
+export async function fetchAssignment() {
+  const prompt = `Search the web for useful AI productivity practices (today is ${new Date().toDateString()}). Respond with ONLY a JSON object, no prose, no markdown, keys exactly:
+"move" (one specific, actionable way to use AI TODAY to work faster, smarter, or more creatively, focused on productivity, workflow, decision-making, communication, research, or content creation, one sentence, imperative voice. Not about coding, software development, or building apps.),
+"detail" (2-3 sentences on exactly how to execute it as a busy operator/founder).
+Valid JSON only. No newlines or tabs inside string values.`;
+
+  const advice = await callClaude(prompt, {
+    model: ASSIGNMENT_MODEL,
+    webSearch: true,
+    maxTokens: 1000,
+    label: "assignment",
+  });
+
+  if (!advice?.move || !advice?.detail) {
+    throw new Error("Assignment response missing move/detail");
+  }
+  console.log("Assignment fetched");
+  return advice;
 }
 
 export async function buildBrief() {
@@ -103,29 +295,55 @@ export async function buildBrief() {
     throw new Error("ANTHROPIC_API_KEY environment variable is not set");
   }
   console.log("Building brief…");
+
+  const store = blobStore();
+  const prior =
+    (await store.get("snapshot", { type: "json" })) || {
+      models: [],
+      news: { stories: [], advice: {} },
+    };
+
   const results = await Promise.allSettled([
-    callClaude(modelPrompt(COMPANIES_A), "models-A"),
-    callClaude(modelPrompt(COMPANIES_B), "models-B"),
-    callClaude(newsPrompt(), "news"),
+    fetchModelsFromAA(),
+    fetchNewsFromNewsAPI(),
+    fetchAssignment(),
   ]);
-  const [aRes, bRes, newsRes] = results;
-  const store = getStore("aiwire");
-  const prior = (await store.get("snapshot", { type: "json" })) || { models: [], news: { stories: [], advice: {} } };
-  const modelsA = aRes.status === "fulfilled" ? aRes.value : null;
-  const modelsB = bRes.status === "fulfilled" ? bRes.value : null;
-  const news = newsRes.status === "fulfilled" ? newsRes.value : null;
-  if (!modelsA && !modelsB && !news) {
-    const errs = results.map((r) => (r.status === "rejected" ? r.reason?.message : "ok")).join(" | ");
+  const [modelsRes, newsRes, adviceRes] = results;
+
+  const models = modelsRes.status === "fulfilled" ? modelsRes.value : null;
+  const newsPayload = newsRes.status === "fulfilled" ? newsRes.value : null;
+  const advice = adviceRes.status === "fulfilled" ? adviceRes.value : null;
+
+  if (!models && !newsPayload && !advice) {
+    const errs = results
+      .map((r) => (r.status === "rejected" ? r.reason?.message : "ok"))
+      .join(" | ");
     throw new Error("All three calls failed: " + errs);
   }
-  const combinedModels = [...(modelsA || []), ...(modelsB || [])];
+
+  for (const [label, res] of [
+    ["models", modelsRes],
+    ["news", newsRes],
+    ["assignment", adviceRes],
+  ]) {
+    if (res.status === "rejected") {
+      console.warn(`[${label}] failed, using prior snapshot data: ${res.reason?.message?.slice(0, 150)}`);
+    }
+  }
+
   const snapshot = {
     ts: Date.now(),
-    models: combinedModels.length ? combinedModels : prior.models,
-    news: news || prior.news,
-    partial: !(modelsA && modelsB && news),
+    models: models || prior.models,
+    news: {
+      stories: newsPayload?.stories || prior.news?.stories || [],
+      advice: advice || prior.news?.advice || {},
+    },
+    partial: !(models && newsPayload && advice),
   };
+
   await store.setJSON("snapshot", snapshot);
-  console.log(`Brief saved. models=${snapshot.models.length}, news=${snapshot.news?.stories?.length ?? 0}, partial=${snapshot.partial}`);
+  console.log(
+    `Brief saved. models=${snapshot.models.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
+  );
   return snapshot;
 }
