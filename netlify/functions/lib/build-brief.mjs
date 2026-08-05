@@ -229,10 +229,32 @@ function mapAAModel(m) {
 }
 
 /**
+ * Group AA models by lab, keep each lab's highest-scoring model,
+ * return up to `limit` labs ranked by that best index.
+ */
+export function fetchAllLabsFromAA(mapped, limit = 20) {
+  const bestByLab = new Map();
+  for (const m of mapped) {
+    const lab = String(m.co || "Unknown").trim() || "Unknown";
+    const prev = bestByLab.get(lab);
+    if (!prev || m.idx > prev.idx) bestByLab.set(lab, m);
+  }
+  return [...bestByLab.values()]
+    .sort((a, b) => b.idx - a.idx)
+    .slice(0, limit)
+    .map((m) => ({
+      co: m.co,
+      model: m.model,
+      idx: m.idx,
+      url: m.url || "",
+    }));
+}
+
+/**
  * Fetch models from Artificial Analysis.
- * Returns { frontier, all, streaks } where frontier is best-per-company
- * for the tracked labs, all is top 20 overall, and streaks is the
- * persisted first-seen map written to the blob store.
+ * Returns { frontier, all, streaks } where frontier is the top 7 tracked
+ * labs, all is up to 20 labs each represented by their best model, and
+ * streaks is the persisted first-seen map written to the blob store.
  */
 export async function fetchModelsFromAA() {
   if (!process.env.AA_API_KEY) {
@@ -259,12 +281,8 @@ export async function fetchModelsFromAA() {
 
   const sorted = mapped.slice().sort((a, b) => b.idx - a.idx);
 
-  const all = sorted.slice(0, 20).map((m) => ({
-    co: m.co,
-    model: m.model,
-    idx: m.idx,
-    url: m.url || "",
-  }));
+  // One row per lab: best model, top 20 labs by intelligence index.
+  const all = fetchAllLabsFromAA(mapped, 20);
 
   // Best model per frontier lab, then keep the top 7 labs by intelligence index.
   const frontier = [];
@@ -293,7 +311,7 @@ export async function fetchModelsFromAA() {
 
   await store.setJSON("model-streaks", nextStreaks);
   console.log(
-    `AA models fetched: frontier=${frontier.length}, all=${all.length}, streaks=${Object.keys(nextStreaks).length}`,
+    `AA models fetched: frontier=${frontier.length}, labs=${all.length}, streaks=${Object.keys(nextStreaks).length}`,
   );
   return { frontier, all, streaks: nextStreaks };
 }

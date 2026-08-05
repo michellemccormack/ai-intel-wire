@@ -255,13 +255,25 @@
     margin-bottom: 0;
   }
   .model.compact .co {
-    font-size: 10px;
-    letter-spacing: 0.1em;
+    font-family: 'Archivo', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--ink);
   }
   .model.compact .name {
-    font-size: 14px;
-    font-weight: 700;
+    margin-top: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dim);
   }
+  .model.compact .name a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .model.compact .name a:hover { text-decoration: underline; }
   .model.compact .idxnum {
     font-size: 14px;
   }
@@ -441,7 +453,7 @@ function renderFrontierCard(m, rank) {
   </div>`;
 }
 
-function renderCompactRow(m, rank) {
+function renderLabRow(m, rank) {
   const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
   return `<div class="model compact">
     <div class="rank">${rank}</div>
@@ -462,18 +474,19 @@ function renderModels(models) {
     .slice()
     .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
     .slice(0, 7);
-  const allSorted = all
+  const labsSorted = all
     .slice()
-    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0));
+    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
+    .slice(0, 20);
 
   const frontierHtml = frontierSorted.map((m, i) => renderFrontierCard(m, i + 1)).join('');
-  const allHtml = allSorted.map((m, i) => renderCompactRow(m, i + 1)).join('');
+  const labsHtml = labsSorted.map((m, i) => renderLabRow(m, i + 1)).join('');
 
   $('modelsList').innerHTML = `
     ${frontierHtml || '<div class="status">No frontier models yet.</div>'}
     <hr class="models-divider" />
-    <div class="section-head all">All Models</div>
-    ${allHtml || '<div class="status">No models yet.</div>'}
+    <div class="section-head all">All Labs</div>
+    ${labsHtml || '<div class="status">No labs yet.</div>'}
   `;
 }
 
