@@ -128,12 +128,8 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .section-head.frontier {
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.14em;
-    color: var(--dim);
-    padding: 28px 24px 14px;
+  #modelsList > .model.frontier:first-child {
+    padding-top: 28px;
   }
   .section-head.all {
     font-size: 11px;
@@ -354,7 +350,7 @@
 
 <nav>
   <div class="shell">
-  <button class="tab active" data-tab="models">Top Models</button>
+  <button class="tab active" data-tab="models">Top Models From 7 Labs</button>
   <button class="tab" data-tab="news">Top 5 News</button>
   <button class="tab" data-tab="advice">Today's Assignment</button>
   </div>
@@ -474,7 +470,6 @@ function renderModels(models) {
   const allHtml = allSorted.map((m, i) => renderCompactRow(m, i + 1)).join('');
 
   $('modelsList').innerHTML = `
-    <div class="section-head frontier">#1 model from top 7 labs</div>
     ${frontierHtml || '<div class="status">No frontier models yet.</div>'}
     <hr class="models-divider" />
     <div class="section-head all">All Models</div>
