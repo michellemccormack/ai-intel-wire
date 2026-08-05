@@ -282,6 +282,78 @@
     padding-left: 20px;
   }
   .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
+  .signup {
+    padding: 60px 24px 40px;
+  }
+  .signup .shell {
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .signup .prompt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 18px;
+  }
+  .signup form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .signup input[type="email"] {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-bottom: 1px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    font-family: 'Archivo', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    padding: 8px 0;
+    outline: none;
+  }
+  .signup input[type="email"]::placeholder {
+    color: var(--dim);
+  }
+  .signup input[type="email"]:focus {
+    border-bottom-color: var(--klein);
+  }
+  .signup button {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--klein);
+    font-size: 22px;
+    line-height: 1;
+    padding: 4px 2px;
+    cursor: pointer;
+  }
+  .signup button:hover,
+  .signup button:focus-visible {
+    color: var(--ink);
+  }
+  .signup button:focus-visible {
+    outline: 2px solid var(--klein);
+    outline-offset: 3px;
+  }
+  .signup .msg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-top: 14px;
+    min-height: 1.2em;
+  }
+  .signup .msg.err {
+    color: #B3261E;
+  }
   footer {
     border-top: 1px solid var(--line);
     padding: 16px 24px;
@@ -344,6 +416,31 @@
   </section>
   </div>
 </main>
+
+<section class="signup" aria-label="Newsletter signup">
+  <div class="shell">
+    <div class="prompt">Get notified when I build something new</div>
+    <form
+      id="signupForm"
+      action="https://its-well-done.beehiiv.com/subscribe"
+      method="POST"
+      target="_blank"
+      rel="noopener"
+    >
+      <input
+        id="signupEmail"
+        type="email"
+        name="email"
+        placeholder="email"
+        required
+        autocomplete="email"
+        aria-label="Email"
+      >
+      <button type="submit" aria-label="Subscribe">→</button>
+    </form>
+    <div class="msg" id="signupMsg" aria-live="polite"></div>
+  </div>
+</section>
 
 <footer>
   <div class="shell">
@@ -573,6 +670,25 @@ async function manualRefresh() {
 
 $('refreshBtn').addEventListener('click', manualRefresh);
 loadSnapshot();
+
+$('signupForm').addEventListener('submit', (e) => {
+  const msg = $('signupMsg');
+  try {
+    const email = $('signupEmail').value.trim();
+    if (!email) {
+      e.preventDefault();
+      msg.textContent = 'Something went wrong. Try again.';
+      msg.classList.add('err');
+      return;
+    }
+    msg.textContent = "Thanks. I'll be in touch.";
+    msg.classList.remove('err');
+  } catch (_) {
+    e.preventDefault();
+    msg.textContent = 'Something went wrong. Try again.';
+    msg.classList.add('err');
+  }
+});
 </script>
 </body>
 </html>
