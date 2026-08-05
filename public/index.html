@@ -283,7 +283,9 @@
   }
   .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
   .signup {
+    border-top: 1px solid var(--line);
     padding: 60px 24px 40px;
+    background: var(--paper);
   }
   .signup .shell {
     max-width: 500px;
@@ -295,7 +297,7 @@
     font-size: 12px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--dim);
+    color: var(--ink);
     margin-bottom: 18px;
   }
   .signup form {
@@ -417,7 +419,7 @@
   </div>
 </main>
 
-<section class="signup" aria-label="Newsletter signup">
+<section class="signup" aria-label="Newsletter signup" data-signup="well-done-v1">
   <div class="shell">
     <div class="prompt">Get notified when I build something new</div>
     <form
