@@ -171,17 +171,21 @@
     text-transform: uppercase;
     color: var(--dim);
   }
-  .model.frontier .rank-co {
-    display: flex;
+  .model.frontier .frontier-main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 10px;
+    row-gap: 6px;
     align-items: baseline;
-    gap: 10px;
-    margin-bottom: 4px;
   }
-  .model.frontier .rank-co .rank {
+  .model.frontier .frontier-main .rank {
+    grid-column: 1;
+    grid-row: 1;
     margin-bottom: 0;
-    flex-shrink: 0;
   }
   .model.frontier .co-name {
+    grid-column: 2;
+    grid-row: 1;
     font-family: 'Archivo', sans-serif;
     font-weight: 800;
     font-size: 18px;
@@ -191,11 +195,19 @@
     line-height: 1.15;
   }
   .model.frontier .model-sub {
+    grid-column: 2;
+    grid-row: 2;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
     color: var(--dim);
     letter-spacing: 0;
     text-transform: none;
+  }
+  .model.frontier .model-sub .model-hl {
+    background: #FFF176;
+    padding: 1px 5px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
   .model.frontier .model-sub a {
     color: inherit;
@@ -211,16 +223,6 @@
   .model .name .ver { font-weight: 400; color: var(--dim); font-size: 14px; margin-left: 6px; }
   .model .cap { margin-top: 3px; }
   .model .new { margin-top: 6px; font-size: 13px; color: var(--dim); }
-  .streak {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--dim);
-    margin-left: 8px;
-    vertical-align: middle;
-    letter-spacing: 0;
-    text-transform: none;
-  }
   .specs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
   .spec {
     font-family: 'IBM Plex Mono', monospace;
@@ -410,34 +412,12 @@ function stripParentheticals(name) {
     .trim();
 }
 
-function modelNameHtml(m) {
+function modelNameHtml(m, { highlight = false } = {}) {
   const label = esc(stripParentheticals(m.model));
-  const linked = m.url
-    ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${label}</a>`
-    : label;
-  return linked;
-}
-
-function dayCountLabel(n) {
-  const days = Math.max(1, Number(n) || 1);
-  return days === 1 ? '1 day on list' : `${days} days on list`;
-}
-
-function formatStreak(streak) {
-  if (!streak) return '';
-  const raw = String(streak).trim();
-  if (raw.toUpperCase() === 'NEW') return dayCountLabel(1);
-  const short = raw.match(/^(\d+)d$/i);
-  if (short) return dayCountLabel(short[1]);
-  const long = raw.match(/^(\d+)\s*days?\s+on(?:\s+the)?\s+list$/i);
-  if (long) return dayCountLabel(long[1]);
-  return raw;
-}
-
-function streakHtml(streak) {
-  const label = formatStreak(streak);
-  if (!label) return '';
-  return `<span class="streak">${esc(label)}</span>`;
+  const inner = highlight ? `<span class="model-hl">${label}</span>` : label;
+  return m.url
+    ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${inner}</a>`
+    : inner;
 }
 
 function normalizeModels(models) {
@@ -452,12 +432,10 @@ function normalizeModels(models) {
 function renderFrontierCard(m, rank) {
   const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
   return `<div class="model frontier">
-    <div>
-      <div class="rank-co">
-        <div class="rank">${rank}</div>
-        <div class="co-name">${esc(m.co)}</div>
-      </div>
-      <div class="model-sub">${modelNameHtml(m)}${streakHtml(m.streak)}</div>
+    <div class="frontier-main">
+      <div class="rank">${rank}</div>
+      <div class="co-name">${esc(m.co)}</div>
+      <div class="model-sub">${modelNameHtml(m, { highlight: true })}</div>
     </div>
     <div class="idxwrap">
       <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
@@ -496,7 +474,7 @@ function renderModels(models) {
   const allHtml = allSorted.map((m, i) => renderCompactRow(m, i + 1)).join('');
 
   $('modelsList').innerHTML = `
-    <div class="section-head frontier">Top model from each frontier lab</div>
+    <div class="section-head frontier">#1 model from top 7 labs</div>
     ${frontierHtml || '<div class="status">No frontier models yet.</div>'}
     <hr class="models-divider" />
     <div class="section-head all">All Models</div>
