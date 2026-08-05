@@ -211,10 +211,12 @@ function mapAAModel(m) {
   if (idx == null || !Number.isFinite(Number(idx))) return null;
   const modality = m.modality ?? m.modalities ?? null;
   const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
-  const co = m.model_creator?.name || m.creator?.name || "Unknown";
+  const creator = m.model_creator || m.creator || {};
+  const co = creator.name || "Unknown";
   const model = m.name || "";
   return {
     co,
+    creatorId: creator.id || creator.slug || "",
     model,
     ver: m.version || "",
     date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
@@ -228,19 +230,31 @@ function mapAAModel(m) {
   };
 }
 
+/** Stable lab key: prefer creator id/slug, else normalized display name. */
+function labDedupeKey(m) {
+  const id = String(m.creatorId || "").trim();
+  if (id) return `id:${id.toLowerCase()}`;
+  const name = String(m.co || "Unknown").trim().toLowerCase() || "unknown";
+  return `name:${name}`;
+}
+
 /**
- * Group AA models by lab, keep each lab's highest-scoring model,
- * return up to `limit` labs ranked by that best index.
+ * Group AA models by lab, keep each lab's single highest-scoring model,
+ * return up to `limit` UNIQUE labs ranked by that best index.
  */
 export function fetchAllLabsFromAA(mapped, limit = 20) {
   const bestByLab = new Map();
-  for (const m of mapped) {
-    const lab = String(m.co || "Unknown").trim() || "Unknown";
-    const prev = bestByLab.get(lab);
-    if (!prev || m.idx > prev.idx) bestByLab.set(lab, m);
+  for (const m of mapped || []) {
+    if (!m || !Number.isFinite(Number(m.idx))) continue;
+    const key = labDedupeKey(m);
+    const prev = bestByLab.get(key);
+    if (!prev || Number(m.idx) > Number(prev.idx)) {
+      bestByLab.set(key, m);
+    }
   }
-  return [...bestByLab.values()]
-    .sort((a, b) => b.idx - a.idx)
+
+  const labs = [...bestByLab.values()]
+    .sort((a, b) => Number(b.idx) - Number(a.idx) || String(a.co).localeCompare(String(b.co)))
     .slice(0, limit)
     .map((m) => ({
       co: m.co,
@@ -248,6 +262,25 @@ export function fetchAllLabsFromAA(mapped, limit = 20) {
       idx: m.idx,
       url: m.url || "",
     }));
+
+  // Hard guarantee: one row per lab name (case-insensitive).
+  const seen = new Set();
+  const unique = [];
+  for (const lab of labs) {
+    const nameKey = String(lab.co || "").trim().toLowerCase();
+    if (!nameKey || seen.has(nameKey)) continue;
+    seen.add(nameKey);
+    unique.push(lab);
+  }
+
+  if (unique.length !== new Set(unique.map((l) => l.co.trim().toLowerCase())).size) {
+    throw new Error("All Labs dedupe failed: duplicate lab names remain");
+  }
+
+  console.log(
+    `All Labs deduped: ${mapped?.length || 0} models → ${unique.length} unique labs`,
+  );
+  return unique;
 }
 
 /**

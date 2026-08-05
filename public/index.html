@@ -467,6 +467,22 @@ function renderLabRow(m, rank) {
   </div>`;
 }
 
+/** One row per lab: keep the highest-scoring model for each company name. */
+function dedupeLabs(list) {
+  const bestByLab = new Map();
+  for (const m of list || []) {
+    const key = String(m?.co || '').trim().toLowerCase();
+    if (!key) continue;
+    const prev = bestByLab.get(key);
+    if (!prev || (Number(m.idx) || 0) > (Number(prev.idx) || 0)) {
+      bestByLab.set(key, m);
+    }
+  }
+  return [...bestByLab.values()]
+    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
+    .slice(0, 20);
+}
+
 function renderModels(models) {
   $('modelsStatus').textContent = '';
   const { frontier, all } = normalizeModels(models);
@@ -474,10 +490,7 @@ function renderModels(models) {
     .slice()
     .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
     .slice(0, 7);
-  const labsSorted = all
-    .slice()
-    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
-    .slice(0, 20);
+  const labsSorted = dedupeLabs(all);
 
   const frontierHtml = frontierSorted.map((m, i) => renderFrontierCard(m, i + 1)).join('');
   const labsHtml = labsSorted.map((m, i) => renderLabRow(m, i + 1)).join('');
