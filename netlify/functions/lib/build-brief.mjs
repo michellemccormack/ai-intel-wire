@@ -165,7 +165,7 @@ const FRONTIER_COMPANIES = [
   { label: "OpenAI", match: (co) => /openai/i.test(co) },
   { label: "Anthropic", match: (co) => /anthropic/i.test(co) },
   { label: "Google DeepMind", match: (co) => /google|deepmind/i.test(co) },
-  { label: "xAI", match: (co) => /\bxai\b/i.test(co) },
+  { label: "xAI", match: (co) => /\bxai\b|spacexai/i.test(co) },
   { label: "Meta", match: (co) => /^(meta|facebook)\b|\bmeta ai\b/i.test(co) },
   { label: "DeepSeek", match: (co) => /deepseek/i.test(co) },
   { label: "Alibaba (Qwen)", match: (co) => /alibaba|qwen/i.test(co) },
@@ -195,11 +195,14 @@ function streakLabel(firstDateStr, todayStr) {
 
 function modelUrlFromAA(m) {
   const raw = m.url || m.model_page_url || m.model_url || m.page_url || "";
-  if (typeof raw !== "string") return "";
-  const url = raw.trim();
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (url.startsWith("/")) return `https://artificialanalysis.ai${url}`;
+  if (typeof raw === "string") {
+    const url = raw.trim();
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    if (url.startsWith("/")) return `https://artificialanalysis.ai${url}`;
+  }
+  // AA list endpoint has no url field — public pages are /models/{slug}.
+  const slug = typeof m.slug === "string" ? m.slug.trim() : "";
+  if (slug) return `https://artificialanalysis.ai/models/${encodeURIComponent(slug)}`;
   return "";
 }
 
@@ -213,7 +216,7 @@ function mapAAModel(m) {
   return {
     co,
     model,
-    ver: m.version || m.slug || "",
+    ver: m.version || "",
     date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
     cap: modalityLabel(modality),
     mode: formatModality(modality),
