@@ -160,7 +160,135 @@ async function callClaude(prompt, { model, webSearch = false, maxTokens = 2000, 
   throw lastErr;
 }
 
-/** Fetch top models from Artificial Analysis (not Claude). */
+/**
+ * AA's model_creator.name is often a product/codename (SpaceXAI, Kimi, Z AI).
+ * Map those to the public lab names we want to show.
+ */
+const LAB_DISPLAY_ALIASES = [
+  { display: "xAI", match: /^(spacexai|xai)$/i },
+  { display: "Moonshot AI", match: /^(kimi|moonshot|moonshot ai)$/i },
+  { display: "Google DeepMind", match: /^(google|google deepmind|deepmind|google gemini)$/i },
+  { display: "Alibaba (Qwen)", match: /^(alibaba|alibaba cloud|qwen)$/i },
+  { display: "Zhipu (GLM)", match: /^(z ai|zai|zhipu|zhipu ai)$/i },
+];
+
+export function canonicalizeLabName(name, slug = "") {
+  const candidates = [name, slug]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  for (const candidate of candidates) {
+    for (const rule of LAB_DISPLAY_ALIASES) {
+      if (rule.match.test(candidate)) return rule.display;
+    }
+  }
+  return String(name || "").trim() || "Unknown";
+}
+
+function modelUrlFromAA(m) {
+  const raw = m.url || m.model_page_url || m.model_url || m.page_url || "";
+  if (typeof raw === "string") {
+    const url = raw.trim();
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    if (url.startsWith("/")) return `https://artificialanalysis.ai${url}`;
+  }
+  // AA list endpoint has no url field — public pages are /models/{slug}.
+  const slug = typeof m.slug === "string" ? m.slug.trim() : "";
+  if (slug) return `https://artificialanalysis.ai/models/${encodeURIComponent(slug)}`;
+  return "";
+}
+
+function mapAAModel(m) {
+  const idx = m?.evaluations?.artificial_analysis_intelligence_index;
+  if (idx == null || !Number.isFinite(Number(idx))) return null;
+  const modality = m.modality ?? m.modalities ?? null;
+  const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
+  const creator = m.model_creator || m.creator || {};
+  const coRaw = creator.name || "Unknown";
+  const creatorSlug = creator.slug || "";
+  const model = m.name || "";
+  return {
+    coRaw,
+    co: canonicalizeLabName(coRaw, creatorSlug),
+    creatorId: creator.id || "",
+    creatorSlug,
+    model,
+    ver: m.version || "",
+    date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
+    cap: modalityLabel(modality),
+    mode: formatModality(modality),
+    ctx: formatContextWindow(ctxTokens),
+    access: m.access || m.licensing?.type || "API",
+    idx: Math.round(Number(idx)),
+    url: modelUrlFromAA(m),
+    new: "",
+  };
+}
+
+/**
+ * Stable lab key using canonical display name so aliases collapse
+ * (SpaceXAI/xAI, Kimi/Moonshot AI, Alibaba/Qwen, etc.).
+ */
+function labDedupeKey(m) {
+  const display = canonicalizeLabName(m.coRaw || m.co, m.creatorSlug);
+  return `lab:${display.trim().toLowerCase()}`;
+}
+
+/**
+ * Group AA models by lab, keep each lab's single highest-scoring model,
+ * return up to `limit` UNIQUE labs ranked by that best index.
+ */
+export function fetchAllLabsFromAA(mapped, limit = 20) {
+  const bestByLab = new Map();
+  for (const m of mapped || []) {
+    if (!m || !Number.isFinite(Number(m.idx))) continue;
+    const key = labDedupeKey(m);
+    const prev = bestByLab.get(key);
+    if (!prev || Number(m.idx) > Number(prev.idx)) {
+      bestByLab.set(key, {
+        ...m,
+        co: canonicalizeLabName(m.coRaw || m.co, m.creatorSlug),
+      });
+    }
+  }
+
+  const labs = [...bestByLab.values()]
+    .sort((a, b) => Number(b.idx) - Number(a.idx) || String(a.co).localeCompare(String(b.co)))
+    .slice(0, limit)
+    .map((m) => ({
+      co: m.co,
+      model: m.model,
+      idx: m.idx,
+      url: m.url || "",
+    }));
+
+  // Hard guarantee: one row per lab name (case-insensitive).
+  const seen = new Set();
+  const unique = [];
+  for (const lab of labs) {
+    const nameKey = String(lab.co || "").trim().toLowerCase();
+    if (!nameKey || seen.has(nameKey)) continue;
+    seen.add(nameKey);
+    unique.push(lab);
+  }
+
+  if (unique.length !== new Set(unique.map((l) => l.co.trim().toLowerCase())).size) {
+    throw new Error("All Labs dedupe failed: duplicate lab names remain");
+  }
+
+  const rawCreators = [...new Set((mapped || []).map((m) => m.coRaw || m.co).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+  console.log(
+    `All Labs: ${mapped?.length || 0} scored models → ${bestByLab.size} unique labs (returning ${unique.length}). Raw creators (${rawCreators.length}): ${rawCreators.join(", ")}`,
+  );
+  return unique;
+}
+
+/**
+ * Fetch models from Artificial Analysis.
+ * Returns { labs, all } — one continuous ranked list of up to 20 unique
+ * labs (each lab's best model), sorted by intelligence index.
+ */
 export async function fetchModelsFromAA() {
   if (!process.env.AA_API_KEY) {
     throw new Error("AA_API_KEY environment variable is not set");
@@ -179,32 +307,22 @@ export async function fetchModelsFromAA() {
   const payload = await res.json();
   const rows = Array.isArray(payload) ? payload : payload.data || payload.models || [];
 
-  const models = rows
-    .map((m) => {
-      const idx = m?.evaluations?.artificial_analysis_intelligence_index;
-      if (idx == null || !Number.isFinite(Number(idx))) return null;
-      const modality = m.modality ?? m.modalities ?? null;
-      const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
-      return {
-        co: m.model_creator?.name || m.creator?.name || "Unknown",
-        model: m.name || "",
-        ver: m.version || m.slug || "",
-        date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
-        cap: modalityLabel(modality),
-        mode: formatModality(modality),
-        ctx: formatContextWindow(ctxTokens),
-        access: m.access || m.licensing?.type || "API",
-        idx: Math.round(Number(idx)),
-        new: "",
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.idx - a.idx)
-    .slice(0, 20);
+  const mapped = rows.map(mapAAModel).filter(Boolean);
+  if (!mapped.length) {
+    throw new Error("Artificial Analysis returned no models with intelligence index");
+  }
 
-  if (!models.length) throw new Error("Artificial Analysis returned no models with intelligence index");
-  console.log(`AA models fetched: ${models.length}`);
-  return models;
+  const rawCreatorNames = [...new Set(mapped.map((m) => m.coRaw).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  console.log(
+    `AA raw unique creators with intelligence index (${rawCreatorNames.length}): ${rawCreatorNames.join(", ")}`,
+  );
+
+  // Single ranked list: one row per lab, best model only, top 20.
+  const labs = fetchAllLabsFromAA(mapped, 20);
+  console.log(`AA models fetched: labs=${labs.length}`);
+  return { labs, all: labs };
 }
 
 /** Fetch recent AI headlines from NewsAPI, then pick/format top 5 via Claude. */
@@ -304,7 +422,7 @@ export async function buildBrief() {
   const store = blobStore();
   const prior =
     (await store.get("snapshot", { type: "json" })) || {
-      models: [],
+      models: { labs: [], all: [] },
       news: { stories: [], advice: {} },
     };
 
@@ -315,11 +433,11 @@ export async function buildBrief() {
   ]);
   const [modelsRes, newsRes, adviceRes] = results;
 
-  const models = modelsRes.status === "fulfilled" ? modelsRes.value : null;
+  const modelsPayload = modelsRes.status === "fulfilled" ? modelsRes.value : null;
   const newsPayload = newsRes.status === "fulfilled" ? newsRes.value : null;
   const advice = adviceRes.status === "fulfilled" ? adviceRes.value : null;
 
-  if (!models && !newsPayload && !advice) {
+  if (!modelsPayload && !newsPayload && !advice) {
     const errs = results
       .map((r) => (r.status === "rejected" ? r.reason?.message : "ok"))
       .join(" | ");
@@ -336,19 +454,34 @@ export async function buildBrief() {
     }
   }
 
+  const priorModels = normalizeModelsPayload(prior.models);
+  const labs = modelsPayload
+    ? modelsPayload.labs || modelsPayload.all || []
+    : priorModels.labs;
+  const models = { labs, all: labs };
+
   const snapshot = {
     ts: Date.now(),
-    models: models || prior.models,
+    models,
     news: {
       stories: newsPayload?.stories || prior.news?.stories || [],
       advice: advice || prior.news?.advice || {},
     },
-    partial: !(models && newsPayload && advice),
+    partial: !(modelsPayload && newsPayload && advice),
   };
 
   await store.setJSON("snapshot", snapshot);
   console.log(
-    `Brief saved. models=${snapshot.models.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
+    `Brief saved. labs=${snapshot.models.labs.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
   );
   return snapshot;
+}
+
+/** Normalize legacy snapshots into { labs, all }. */
+function normalizeModelsPayload(models) {
+  if (!models) return { labs: [], all: [] };
+  if (Array.isArray(models)) return { labs: models, all: models };
+  const labs = models.labs || models.all || models.frontier || [];
+  const list = Array.isArray(labs) ? labs : [];
+  return { labs: list, all: list };
 }

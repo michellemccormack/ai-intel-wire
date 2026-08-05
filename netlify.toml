@@ -5,6 +5,13 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Stop Netlify Durable Cache from serving year-old HTML on branch deploys.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Netlify-CDN-Cache-Control = "public, max-age=0, must-revalidate"
+
 [[redirects]]
   from = "/api/brief"
   to = "/.netlify/functions/brief"

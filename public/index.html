@@ -111,8 +111,8 @@
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
   main { padding: 0 0 60px; }
-  section { display: none; }
-  section.active { display: block; }
+  main section { display: none; }
+  main section.active { display: block; }
   .status {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -121,11 +121,23 @@
   }
   .status:empty { display: none; }
   .status.err { color: #B3261E; }
+  #modelsList > .model:first-child {
+    padding-top: 28px;
+  }
+  .models-more {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    padding: 0 24px;
+    margin-top: 48px;
+    margin-bottom: 24px;
+  }
   .model {
     border-bottom: 1px solid var(--line);
     padding: 18px 24px;
     display: grid;
-    grid-template-columns: 150px 1fr 180px;
+    grid-template-columns: 1fr 180px;
     gap: 18px;
     align-items: start;
   }
@@ -135,19 +147,47 @@
     font-size: 20px;
     color: var(--ink);
     line-height: 1;
-    margin-bottom: 6px;
+    margin-bottom: 0;
   }
-  .model .co {
+  .model .row-main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 10px;
+    row-gap: 6px;
+    align-items: baseline;
+  }
+  .model .row-main .rank {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .model .co-name {
+    grid-column: 2;
+    grid-row: 1;
+    font-family: 'Archivo', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .model .model-sub {
+    grid-column: 2;
+    grid-row: 2;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 13px;
     color: var(--dim);
   }
-  .model .name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
-  .model .name .ver { font-weight: 400; color: var(--dim); font-size: 14px; margin-left: 6px; }
-  .model .cap { margin-top: 3px; }
-  .model .new { margin-top: 6px; font-size: 13px; color: var(--dim); }
+  .model .model-sub .model-hl {
+    background: #FFF176;
+    padding: 1px 5px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .model .model-sub a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .model .model-sub a:hover { text-decoration: underline; }
   .specs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
   .spec {
     font-family: 'IBM Plex Mono', monospace;
@@ -173,6 +213,32 @@
   }
   .idxbar { margin-top: 8px; height: 6px; background: var(--klein-soft); position: relative; }
   .idxbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--klein); display: block; }
+  .model.compact {
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    padding: 10px 24px;
+    align-items: center;
+  }
+  .model.compact .row-main {
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+  .model.compact .rank {
+    font-size: 13px;
+  }
+  .model.compact .co-name {
+    font-size: 15px;
+  }
+  .model.compact .model-sub {
+    font-size: 12px;
+  }
+  .model.compact .idxnum {
+    font-size: 14px;
+  }
+  .model.compact .idxlabel,
+  .model.compact .idxbar {
+    display: none;
+  }
   .story { border-bottom: 1px solid var(--line); padding: 20px 24px; }
   .story .src {
     font-family: 'IBM Plex Mono', monospace;
@@ -216,6 +282,36 @@
     padding-left: 20px;
   }
   .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
+  .signup {
+    border-top: 1px solid var(--line);
+  }
+  .signup-embed {
+    /* Beehiiv slim form is 400px and left-aligned in its iframe — match that width */
+    width: 400px;
+    max-width: calc(100% - 48px);
+    margin: 0 auto;
+    padding: 60px 0 40px;
+  }
+  .signup-label {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+  .signup-beehiiv iframe {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+  }
+  /* Kill Beehiiv's top-of-page toast — we show an inline success message instead */
+  #beehiiv-toast {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
   footer {
     border-top: 1px solid var(--line);
     padding: 16px 24px;
@@ -225,10 +321,12 @@
   }
   @media (max-width: 720px) {
     .model { grid-template-columns: 1fr; gap: 8px; }
+    .model.compact { grid-template-columns: 1fr auto; gap: 8px; }
     .idxwrap { text-align: left; }
+    .model.compact .idxwrap { text-align: right; }
     header { padding: 20px 16px 14px; }
     .head-right { align-items: flex-start; }
-    .model, .story { padding-left: 16px; padding-right: 16px; }
+    .model, .story, .models-more { padding-left: 16px; padding-right: 16px; }
     .advice { padding: 32px 16px; }
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -254,7 +352,7 @@
 
 <nav>
   <div class="shell">
-  <button class="tab active" data-tab="models">Top Models</button>
+  <button class="tab active" data-tab="models">Today's Top Models</button>
   <button class="tab" data-tab="news">Top 5 News</button>
   <button class="tab" data-tab="advice">Today's Assignment</button>
   </div>
@@ -276,6 +374,19 @@
   </section>
   </div>
 </main>
+
+<div class="signup" aria-label="Newsletter signup">
+  <div id="signup-container">
+    <div class="signup-embed">
+      <div class="signup-label">Get notified when I build something new</div>
+      <div class="signup-beehiiv">
+        <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
+        <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
+      </div>
+    </div>
+  </div>
+  <div id="signup-success" style="display: none; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-transform: uppercase; color: var(--dim); letter-spacing: 0.12em; padding: 40px 24px;">Done. You're subscribed.</div>
+</div>
 
 <footer>
   <div class="shell">
@@ -305,37 +416,88 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function stripParentheticals(name) {
+  return String(name ?? '')
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function modelNameHtml(m, { highlight = false } = {}) {
+  const label = esc(stripParentheticals(m.model));
+  const inner = highlight ? `<span class="model-hl">${label}</span>` : label;
+  return m.url
+    ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${inner}</a>`
+    : inner;
+}
+
+/** Match backend aliases so SpaceXAI/Kimi etc. show proper lab names. */
+function canonicalizeLabName(name) {
+  const raw = String(name || '').trim();
+  const key = raw.toLowerCase();
+  if (/^(spacexai|xai)$/.test(key)) return 'xAI';
+  if (/^(kimi|moonshot|moonshot ai)$/.test(key)) return 'Moonshot AI';
+  if (/^(google|google deepmind|deepmind|google gemini)$/.test(key)) return 'Google DeepMind';
+  if (/^(alibaba|alibaba cloud|qwen)$/.test(key)) return 'Alibaba (Qwen)';
+  if (/^(z ai|zai|zhipu|zhipu ai)$/.test(key)) return 'Zhipu (GLM)';
+  return raw;
+}
+
+/** One continuous ranked list: unique labs, best model each, top 20. */
+function rankedLabs(models) {
+  let list = [];
+  if (Array.isArray(models)) list = models;
+  else if (models) {
+    list = models.labs || models.all || models.frontier || [];
+  }
+  const bestByLab = new Map();
+  for (const m of list || []) {
+    const co = canonicalizeLabName(m?.co);
+    const key = co.toLowerCase();
+    if (!key) continue;
+    const row = { ...m, co };
+    const prev = bestByLab.get(key);
+    if (!prev || (Number(m.idx) || 0) > (Number(prev.idx) || 0)) {
+      bestByLab.set(key, row);
+    }
+  }
+  return [...bestByLab.values()]
+    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
+    .slice(0, 20);
+}
+
+function renderLabRow(m, rank) {
+  const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
+  const featured = rank <= 5;
+  const cls = featured ? 'model featured' : 'model compact';
+  return `<div class="${cls}">
+    <div class="row-main">
+      <div class="rank">${rank}</div>
+      <div class="co-name">${esc(m.co)}</div>
+      <div class="model-sub">${modelNameHtml(m, { highlight: rank === 1 })}</div>
+    </div>
+    <div class="idxwrap">
+      <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
+      <div class="idxlabel">Intelligence index</div>
+      <div class="idxbar"><i style="width:${idx}%"></i></div>
+    </div>
+  </div>`;
+}
+
 function renderModels(models) {
   $('modelsStatus').textContent = '';
-  $('modelsList').innerHTML = models
-    .slice()
-    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
-    .map((m, i) => {
-      const rank = i + 1;
-      const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
-      return `<div class="model">
-        <div class="co">
-          <div class="rank">${rank}</div>
-          ${esc(m.co)}
-        </div>
-        <div>
-          <div class="name">${esc(m.model)}<span class="ver">${esc(m.ver)}</span></div>
-          <div class="cap">${esc(m.cap)}</div>
-          <div class="new">${esc(m.new)}</div>
-          <div class="specs">
-            <span class="spec">REL ${esc(m.date)}</span>
-            <span class="spec">${esc(m.mode)}</span>
-            <span class="spec">CTX ${esc(m.ctx)}</span>
-            <span class="spec">${esc(m.access)}</span>
-          </div>
-        </div>
-        <div class="idxwrap">
-          <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
-          <div class="idxlabel">Intelligence index</div>
-          <div class="idxbar"><i style="width:${idx}%"></i></div>
-        </div>
-      </div>`;
-    }).join('');
+  const labs = rankedLabs(models);
+  if (!labs.length) {
+    $('modelsList').innerHTML = '<div class="status">No labs yet.</div>';
+    return;
+  }
+  const parts = [];
+  labs.forEach((m, i) => {
+    const rank = i + 1;
+    if (rank === 6) parts.push('<div class="models-more">more...</div>');
+    parts.push(renderLabRow(m, rank));
+  });
+  $('modelsList').innerHTML = parts.join('');
 }
 
 function renderNews(payload) {
@@ -454,6 +616,54 @@ async function manualRefresh() {
 
 $('refreshBtn').addEventListener('click', manualRefresh);
 loadSnapshot();
+
+(function () {
+  const container = document.getElementById('signup-container');
+  const success = document.getElementById('signup-success');
+  if (!container || !success) return;
+
+  let shown = false;
+
+  function killBeehiivToast() {
+    document.querySelectorAll('#beehiiv-toast').forEach((el) => el.remove());
+  }
+
+  function showSignupSuccess() {
+    killBeehiivToast();
+    if (shown) return;
+    shown = true;
+    container.style.display = 'none';
+    success.style.display = 'block';
+  }
+
+  function isBeehiivOrigin(origin) {
+    try {
+      const host = new URL(origin).hostname;
+      return host === 'subscribe-forms.beehiiv.com' || host.endsWith('.beehiiv.com');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isBeehiivSuccess(data) {
+    if (!data || typeof data !== 'object') return false;
+    return data.type === 'beehiiv:success-toast' || data.type === 'beehiiv:submitted';
+  }
+
+  window.addEventListener('message', (event) => {
+    if (!isBeehiivOrigin(event.origin)) return;
+    if (isBeehiivSuccess(event.data)) showSignupSuccess();
+  });
+
+  // Fallback + cleanup: Beehiiv loader injects #beehiiv-toast on success
+  const toastObserver = new MutationObserver(() => {
+    const toast = document.getElementById('beehiiv-toast');
+    if (!toast) return;
+    showSignupSuccess();
+    killBeehiivToast();
+  });
+  toastObserver.observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 </body>
 </html>
