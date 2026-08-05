@@ -160,18 +160,6 @@ async function callClaude(prompt, { model, webSearch = false, maxTokens = 2000, 
   throw lastErr;
 }
 
-/** Frontier companies: best single model from each, matched against AA creator names. */
-const FRONTIER_COMPANIES = [
-  { label: "OpenAI", match: (co) => /openai/i.test(co) },
-  { label: "Anthropic", match: (co) => /anthropic/i.test(co) },
-  { label: "Google DeepMind", match: (co) => /google|deepmind/i.test(co) },
-  { label: "xAI", match: (co) => /\bxai\b|spacexai/i.test(co) },
-  { label: "Meta", match: (co) => /^(meta|facebook)\b|\bmeta ai\b/i.test(co) },
-  { label: "DeepSeek", match: (co) => /deepseek/i.test(co) },
-  { label: "Alibaba (Qwen)", match: (co) => /alibaba|qwen/i.test(co) },
-  { label: "Mistral", match: (co) => /mistral/i.test(co) },
-];
-
 /**
  * AA's model_creator.name is often a product/codename (SpaceXAI, Kimi, Z AI).
  * Map those to the public lab names we want to show.
@@ -194,27 +182,6 @@ export function canonicalizeLabName(name, slug = "") {
     }
   }
   return String(name || "").trim() || "Unknown";
-}
-
-function modelKey(co, model) {
-  return `${String(co || "").trim()}|${String(model || "").trim()}`;
-}
-
-/** Calendar date in America/New_York as YYYY-MM-DD. */
-function todayEtDateStr() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
-
-function parseYmd(ymd) {
-  const [y, m, d] = String(ymd).split("-").map(Number);
-  return Date.UTC(y, m - 1, d);
-}
-
-/** Calendar days on the frontier list: "1 day on list", "2 days on list", … */
-function streakLabel(firstDateStr, todayStr) {
-  const days = Math.round((parseYmd(todayStr) - parseYmd(firstDateStr)) / 86_400_000);
-  const n = !Number.isFinite(days) || days <= 0 ? 1 : days + 1;
-  return n === 1 ? "1 day on list" : `${n} days on list`;
 }
 
 function modelUrlFromAA(m) {
@@ -319,9 +286,8 @@ export function fetchAllLabsFromAA(mapped, limit = 20) {
 
 /**
  * Fetch models from Artificial Analysis.
- * Returns { frontier, all, streaks } where frontier is the top 7 tracked
- * labs, all is up to 20 labs each represented by their best model, and
- * streaks is the persisted first-seen map written to the blob store.
+ * Returns { labs, all } — one continuous ranked list of up to 20 unique
+ * labs (each lab's best model), sorted by intelligence index.
  */
 export async function fetchModelsFromAA() {
   if (!process.env.AA_API_KEY) {
@@ -353,42 +319,10 @@ export async function fetchModelsFromAA() {
     `AA raw unique creators with intelligence index (${rawCreatorNames.length}): ${rawCreatorNames.join(", ")}`,
   );
 
-  const sorted = mapped.slice().sort((a, b) => b.idx - a.idx);
-
-  // One row per lab across ALL scored models (not top-20 models).
-  // This is what populates All Labs — must run before any model slice.
-  const all = fetchAllLabsFromAA(mapped, 20);
-
-  // Best model per frontier lab, then keep the top 7 labs by intelligence index.
-  const frontier = [];
-  for (const company of FRONTIER_COMPANIES) {
-    const best = sorted.find((m) => company.match(m.coRaw || m.co));
-    if (!best) continue;
-    frontier.push({
-      ...best,
-      co: company.label,
-      new: "",
-    });
-  }
-  frontier.sort((a, b) => b.idx - a.idx);
-  frontier.splice(7);
-
-  const store = blobStore();
-  const streaks = (await store.get("model-streaks", { type: "json" })) || {};
-  const today = todayEtDateStr();
-  const nextStreaks = { ...streaks };
-
-  for (const m of frontier) {
-    const key = modelKey(m.co, m.model);
-    if (!nextStreaks[key]) nextStreaks[key] = today;
-    m.streak = streakLabel(nextStreaks[key], today);
-  }
-
-  await store.setJSON("model-streaks", nextStreaks);
-  console.log(
-    `AA models fetched: frontier=${frontier.length}, labs=${all.length}, streaks=${Object.keys(nextStreaks).length}`,
-  );
-  return { frontier, all, streaks: nextStreaks };
+  // Single ranked list: one row per lab, best model only, top 20.
+  const labs = fetchAllLabsFromAA(mapped, 20);
+  console.log(`AA models fetched: labs=${labs.length}`);
+  return { labs, all: labs };
 }
 
 /** Fetch recent AI headlines from NewsAPI, then pick/format top 5 via Claude. */
@@ -488,7 +422,7 @@ export async function buildBrief() {
   const store = blobStore();
   const prior =
     (await store.get("snapshot", { type: "json" })) || {
-      models: { frontier: [], all: [] },
+      models: { labs: [], all: [] },
       news: { stories: [], advice: {} },
     };
 
@@ -521,9 +455,10 @@ export async function buildBrief() {
   }
 
   const priorModels = normalizeModelsPayload(prior.models);
-  const models = modelsPayload
-    ? { frontier: modelsPayload.frontier, all: modelsPayload.all }
-    : priorModels;
+  const labs = modelsPayload
+    ? modelsPayload.labs || modelsPayload.all || []
+    : priorModels.labs;
+  const models = { labs, all: labs };
 
   const snapshot = {
     ts: Date.now(),
@@ -537,17 +472,16 @@ export async function buildBrief() {
 
   await store.setJSON("snapshot", snapshot);
   console.log(
-    `Brief saved. frontier=${snapshot.models.frontier.length}, all=${snapshot.models.all.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
+    `Brief saved. labs=${snapshot.models.labs.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
   );
   return snapshot;
 }
 
-/** Normalize legacy array snapshots into { frontier, all }. */
+/** Normalize legacy snapshots into { labs, all }. */
 function normalizeModelsPayload(models) {
-  if (!models) return { frontier: [], all: [] };
-  if (Array.isArray(models)) return { frontier: models, all: models };
-  return {
-    frontier: Array.isArray(models.frontier) ? models.frontier : [],
-    all: Array.isArray(models.all) ? models.all : [],
-  };
+  if (!models) return { labs: [], all: [] };
+  if (Array.isArray(models)) return { labs: models, all: models };
+  const labs = models.labs || models.all || models.frontier || [];
+  const list = Array.isArray(labs) ? labs : [];
+  return { labs: list, all: list };
 }

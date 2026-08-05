@@ -121,36 +121,16 @@
   }
   .status:empty { display: none; }
   .status.err { color: #B3261E; }
-  .section-head {
-    padding: 28px 24px 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  #modelsList > .model.frontier:first-child {
+  #modelsList > .model:first-child {
     padding-top: 28px;
-  }
-  .section-head.all {
-    font-size: 11px;
-    color: var(--dim);
-    padding-top: 22px;
-  }
-  .models-divider {
-    border: none;
-    border-top: 1px solid var(--ink);
-    margin: 8px 24px 0;
   }
   .model {
     border-bottom: 1px solid var(--line);
     padding: 18px 24px;
     display: grid;
-    grid-template-columns: 150px 1fr 180px;
+    grid-template-columns: 1fr 180px;
     gap: 18px;
     align-items: start;
-  }
-  .model.frontier {
-    grid-template-columns: 1fr 180px;
   }
   .model .rank {
     font-family: 'IBM Plex Mono', monospace;
@@ -158,67 +138,47 @@
     font-size: 20px;
     color: var(--ink);
     line-height: 1;
-    margin-bottom: 6px;
+    margin-bottom: 0;
   }
-  .model .co {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim);
-  }
-  .model.frontier .frontier-main {
+  .model .row-main {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: 10px;
     row-gap: 6px;
     align-items: baseline;
   }
-  .model.frontier .frontier-main .rank {
+  .model .row-main .rank {
     grid-column: 1;
     grid-row: 1;
-    margin-bottom: 0;
   }
-  .model.frontier .co-name {
+  .model .co-name {
     grid-column: 2;
     grid-row: 1;
     font-family: 'Archivo', sans-serif;
     font-weight: 800;
     font-size: 18px;
     letter-spacing: -0.01em;
-    text-transform: none;
     color: var(--ink);
     line-height: 1.15;
   }
-  .model.frontier .model-sub {
+  .model .model-sub {
     grid-column: 2;
     grid-row: 2;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
     color: var(--dim);
-    letter-spacing: 0;
-    text-transform: none;
   }
-  .model.frontier .model-sub .model-hl {
+  .model .model-sub .model-hl {
     background: #FFF176;
     padding: 1px 5px;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
   }
-  .model.frontier .model-sub a {
+  .model .model-sub a {
     color: inherit;
     text-decoration: none;
   }
-  .model.frontier .model-sub a:hover { text-decoration: underline; }
-  .model .name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
-  .model .name a {
-    color: inherit;
-    text-decoration: none;
-  }
-  .model .name a:hover { text-decoration: underline; }
-  .model .name .ver { font-weight: 400; color: var(--dim); font-size: 14px; margin-left: 6px; }
-  .model .cap { margin-top: 3px; }
-  .model .new { margin-top: 6px; font-size: 13px; color: var(--dim); }
+  .model .model-sub a:hover { text-decoration: underline; }
   .specs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
   .spec {
     font-family: 'IBM Plex Mono', monospace;
@@ -245,37 +205,30 @@
   .idxbar { margin-top: 8px; height: 6px; background: var(--klein-soft); position: relative; }
   .idxbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--klein); display: block; }
   .model.compact {
-    grid-template-columns: 48px 1fr auto;
+    grid-template-columns: 1fr auto;
     gap: 12px;
-    padding: 8px 24px;
+    padding: 10px 24px;
     align-items: center;
+  }
+  .model.compact .row-main {
+    column-gap: 8px;
+    row-gap: 2px;
   }
   .model.compact .rank {
     font-size: 13px;
-    margin-bottom: 0;
   }
-  .model.compact .co {
-    font-family: 'Archivo', sans-serif;
-    font-weight: 800;
+  .model.compact .co-name {
     font-size: 15px;
-    letter-spacing: -0.01em;
-    text-transform: none;
-    color: var(--ink);
   }
-  .model.compact .name {
-    margin-top: 2px;
-    font-family: 'IBM Plex Mono', monospace;
+  .model.compact .model-sub {
     font-size: 12px;
-    font-weight: 400;
-    color: var(--dim);
   }
-  .model.compact .name a {
-    color: inherit;
-    text-decoration: none;
-  }
-  .model.compact .name a:hover { text-decoration: underline; }
   .model.compact .idxnum {
     font-size: 14px;
+  }
+  .model.compact .idxlabel,
+  .model.compact .idxbar {
+    display: none;
   }
   .story { border-bottom: 1px solid var(--line); padding: 20px 24px; }
   .story .src {
@@ -329,14 +282,12 @@
   }
   @media (max-width: 720px) {
     .model { grid-template-columns: 1fr; gap: 8px; }
-    .model.frontier { grid-template-columns: 1fr; }
-    .model.compact { grid-template-columns: 36px 1fr auto; gap: 8px; }
+    .model.compact { grid-template-columns: 1fr auto; gap: 8px; }
     .idxwrap { text-align: left; }
     .model.compact .idxwrap { text-align: right; }
     header { padding: 20px 16px 14px; }
     .head-right { align-items: flex-start; }
-    .model, .story, .section-head { padding-left: 16px; padding-right: 16px; }
-    .models-divider { margin-left: 16px; margin-right: 16px; }
+    .model, .story { padding-left: 16px; padding-right: 16px; }
     .advice { padding: 32px 16px; }
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -428,45 +379,6 @@ function modelNameHtml(m, { highlight = false } = {}) {
     : inner;
 }
 
-function normalizeModels(models) {
-  if (!models) return { frontier: [], all: [] };
-  if (Array.isArray(models)) return { frontier: models, all: models };
-  return {
-    frontier: Array.isArray(models.frontier) ? models.frontier : [],
-    all: Array.isArray(models.all) ? models.all : [],
-  };
-}
-
-function renderFrontierCard(m, rank) {
-  const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
-  return `<div class="model frontier">
-    <div class="frontier-main">
-      <div class="rank">${rank}</div>
-      <div class="co-name">${esc(m.co)}</div>
-      <div class="model-sub">${modelNameHtml(m, { highlight: rank === 1 })}</div>
-    </div>
-    <div class="idxwrap">
-      <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
-      <div class="idxlabel">Intelligence index</div>
-      <div class="idxbar"><i style="width:${idx}%"></i></div>
-    </div>
-  </div>`;
-}
-
-function renderLabRow(m, rank) {
-  const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
-  return `<div class="model compact">
-    <div class="rank">${rank}</div>
-    <div>
-      <div class="co">${esc(m.co)}</div>
-      <div class="name">${modelNameHtml(m)}</div>
-    </div>
-    <div class="idxwrap">
-      <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
-    </div>
-  </div>`;
-}
-
 /** Match backend aliases so SpaceXAI/Kimi etc. show proper lab names. */
 function canonicalizeLabName(name) {
   const raw = String(name || '').trim();
@@ -479,8 +391,13 @@ function canonicalizeLabName(name) {
   return raw;
 }
 
-/** One row per lab: keep the highest-scoring model for each canonical lab. */
-function dedupeLabs(list) {
+/** One continuous ranked list: unique labs, best model each, top 20. */
+function rankedLabs(models) {
+  let list = [];
+  if (Array.isArray(models)) list = models;
+  else if (models) {
+    list = models.labs || models.all || models.frontier || [];
+  }
   const bestByLab = new Map();
   for (const m of list || []) {
     const co = canonicalizeLabName(m?.co);
@@ -497,24 +414,30 @@ function dedupeLabs(list) {
     .slice(0, 20);
 }
 
+function renderLabRow(m, rank) {
+  const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
+  const featured = rank <= 5;
+  const cls = featured ? 'model featured' : 'model compact';
+  return `<div class="${cls}">
+    <div class="row-main">
+      <div class="rank">${rank}</div>
+      <div class="co-name">${esc(m.co)}</div>
+      <div class="model-sub">${modelNameHtml(m, { highlight: rank === 1 })}</div>
+    </div>
+    <div class="idxwrap">
+      <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
+      <div class="idxlabel">Intelligence index</div>
+      <div class="idxbar"><i style="width:${idx}%"></i></div>
+    </div>
+  </div>`;
+}
+
 function renderModels(models) {
   $('modelsStatus').textContent = '';
-  const { frontier, all } = normalizeModels(models);
-  const frontierSorted = frontier
-    .slice()
-    .sort((a, b) => (Number(b.idx) || 0) - (Number(a.idx) || 0))
-    .slice(0, 7);
-  const labsSorted = dedupeLabs(all);
-
-  const frontierHtml = frontierSorted.map((m, i) => renderFrontierCard(m, i + 1)).join('');
-  const labsHtml = labsSorted.map((m, i) => renderLabRow(m, i + 1)).join('');
-
-  $('modelsList').innerHTML = `
-    ${frontierHtml || '<div class="status">No frontier models yet.</div>'}
-    <hr class="models-divider" />
-    <div class="section-head all">All Labs</div>
-    ${labsHtml || '<div class="status">No labs yet.</div>'}
-  `;
+  const labs = rankedLabs(models);
+  $('modelsList').innerHTML = labs.length
+    ? labs.map((m, i) => renderLabRow(m, i + 1)).join('')
+    : '<div class="status">No labs yet.</div>';
 }
 
 function renderNews(payload) {
