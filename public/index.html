@@ -435,7 +435,7 @@ function renderFrontierCard(m, rank) {
     <div class="frontier-main">
       <div class="rank">${rank}</div>
       <div class="co-name">${esc(m.co)}</div>
-      <div class="model-sub">${modelNameHtml(m, { highlight: true })}</div>
+      <div class="model-sub">${modelNameHtml(m, { highlight: rank === 1 })}</div>
     </div>
     <div class="idxwrap">
       <div class="idxnum">${idx || '·'}${idx ? '<span class="idxmax">/100</span>' : ''}</div>
