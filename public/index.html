@@ -111,7 +111,6 @@
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
   main { padding: 0 0 60px; }
-  /* Only tab panels inside main — do not hide other <section>s (e.g. signup). */
   main section { display: none; }
   main section.active { display: block; }
   .status {
@@ -285,78 +284,11 @@
   .advice .detail { margin-top: 18px; color: var(--dim); font-size: 15px; }
   .signup {
     border-top: 1px solid var(--line);
-    padding: 60px 24px 40px;
-    background: var(--paper);
   }
-  .signup .shell {
+  .signup-embed {
     max-width: 500px;
     margin: 0 auto;
-    text-align: left;
-  }
-  .signup .prompt {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink);
-    margin-bottom: 14px;
-  }
-  .signup form {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    max-width: 360px;
-    margin: 0;
-  }
-  .signup input[type="email"] {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    border-bottom: 1px solid var(--ink);
-    border-radius: 0;
-    background: transparent;
-    font-family: 'Archivo', sans-serif;
-    font-size: 14px;
-    color: var(--ink);
-    padding: 8px 0;
-    outline: none;
-  }
-  .signup input[type="email"]::placeholder {
-    color: var(--dim);
-  }
-  .signup input[type="email"]:focus {
-    border-bottom-color: var(--klein);
-  }
-  .signup button {
-    flex-shrink: 0;
-    border: none;
-    background: none;
-    color: var(--klein);
-    font-size: 22px;
-    line-height: 1;
-    padding: 4px 2px;
-    cursor: pointer;
-  }
-  .signup button:hover,
-  .signup button:focus-visible {
-    color: var(--ink);
-  }
-  .signup button:focus-visible {
-    outline: 2px solid var(--klein);
-    outline-offset: 3px;
-  }
-  .signup .msg {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin-top: 14px;
-    min-height: 1.2em;
-    text-align: left;
-  }
-  .signup .msg.err {
-    color: #B3261E;
+    padding: 60px 24px 40px;
   }
   footer {
     border-top: 1px solid var(--line);
@@ -421,30 +353,12 @@
   </div>
 </main>
 
-<section class="signup" aria-label="Newsletter signup" data-signup="well-done-v1">
-  <div class="shell">
-    <div class="prompt">Get notified when I build something new</div>
-    <form
-      id="signupForm"
-      action="https://its-well-done.beehiiv.com/subscribe"
-      method="POST"
-      target="_blank"
-      rel="noopener"
-    >
-      <input
-        id="signupEmail"
-        type="email"
-        name="email"
-        placeholder="email"
-        required
-        autocomplete="email"
-        aria-label="Email"
-      >
-      <button type="submit" aria-label="Subscribe">→</button>
-    </form>
-    <div class="msg" id="signupMsg" aria-live="polite"></div>
+<div class="signup" aria-label="Newsletter signup">
+  <div class="signup-embed">
+    <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
+    <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
   </div>
-</section>
+</div>
 
 <footer>
   <div class="shell">
@@ -674,25 +588,6 @@ async function manualRefresh() {
 
 $('refreshBtn').addEventListener('click', manualRefresh);
 loadSnapshot();
-
-$('signupForm').addEventListener('submit', (e) => {
-  const msg = $('signupMsg');
-  try {
-    const email = $('signupEmail').value.trim();
-    if (!email) {
-      e.preventDefault();
-      msg.textContent = 'Something went wrong. Try again.';
-      msg.classList.add('err');
-      return;
-    }
-    msg.textContent = "Thanks. I'll be in touch.";
-    msg.classList.remove('err');
-  } catch (_) {
-    e.preventDefault();
-    msg.textContent = 'Something went wrong. Try again.';
-    msg.classList.add('err');
-  }
-});
 </script>
 </body>
 </html>
