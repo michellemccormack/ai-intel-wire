@@ -124,6 +124,15 @@
   #modelsList > .model:first-child {
     padding-top: 28px;
   }
+  .models-more {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    padding: 0 24px;
+    margin-top: 48px;
+    margin-bottom: 24px;
+  }
   .model {
     border-bottom: 1px solid var(--line);
     padding: 18px 24px;
@@ -287,7 +296,7 @@
     .model.compact .idxwrap { text-align: right; }
     header { padding: 20px 16px 14px; }
     .head-right { align-items: flex-start; }
-    .model, .story { padding-left: 16px; padding-right: 16px; }
+    .model, .story, .models-more { padding-left: 16px; padding-right: 16px; }
     .advice { padding: 32px 16px; }
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -435,9 +444,17 @@ function renderLabRow(m, rank) {
 function renderModels(models) {
   $('modelsStatus').textContent = '';
   const labs = rankedLabs(models);
-  $('modelsList').innerHTML = labs.length
-    ? labs.map((m, i) => renderLabRow(m, i + 1)).join('')
-    : '<div class="status">No labs yet.</div>';
+  if (!labs.length) {
+    $('modelsList').innerHTML = '<div class="status">No labs yet.</div>';
+    return;
+  }
+  const parts = [];
+  labs.forEach((m, i) => {
+    const rank = i + 1;
+    if (rank === 6) parts.push('<div class="models-more">more...</div>');
+    parts.push(renderLabRow(m, rank));
+  });
+  $('modelsList').innerHTML = parts.join('');
 }
 
 function renderNews(payload) {
