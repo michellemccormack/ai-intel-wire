@@ -289,6 +289,28 @@
     max-width: 500px;
     margin: 0 auto;
     padding: 60px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .signup-label {
+    width: 100%;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+  .signup-beehiiv {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .signup-beehiiv iframe {
+    margin: 0 auto;
+    max-width: 100%;
   }
   footer {
     border-top: 1px solid var(--line);
@@ -355,9 +377,11 @@
 
 <div class="signup" aria-label="Newsletter signup">
   <div class="signup-embed">
-    <div style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; color: var(--dim); letter-spacing: 0.12em; margin-bottom: 16px;">Get notified when I build something new</div>
-    <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
-    <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
+    <div class="signup-label">Get notified when I build something new</div>
+    <div class="signup-beehiiv">
+      <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
+      <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
+    </div>
   </div>
 </div>
 
