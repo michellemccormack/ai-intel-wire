@@ -467,15 +467,29 @@ function renderLabRow(m, rank) {
   </div>`;
 }
 
-/** One row per lab: keep the highest-scoring model for each company name. */
+/** Match backend aliases so SpaceXAI/Kimi etc. show proper lab names. */
+function canonicalizeLabName(name) {
+  const raw = String(name || '').trim();
+  const key = raw.toLowerCase();
+  if (/^(spacexai|xai)$/.test(key)) return 'xAI';
+  if (/^(kimi|moonshot|moonshot ai)$/.test(key)) return 'Moonshot AI';
+  if (/^(google|google deepmind|deepmind|google gemini)$/.test(key)) return 'Google DeepMind';
+  if (/^(alibaba|alibaba cloud|qwen)$/.test(key)) return 'Alibaba (Qwen)';
+  if (/^(z ai|zai|zhipu|zhipu ai)$/.test(key)) return 'Zhipu (GLM)';
+  return raw;
+}
+
+/** One row per lab: keep the highest-scoring model for each canonical lab. */
 function dedupeLabs(list) {
   const bestByLab = new Map();
   for (const m of list || []) {
-    const key = String(m?.co || '').trim().toLowerCase();
+    const co = canonicalizeLabName(m?.co);
+    const key = co.toLowerCase();
     if (!key) continue;
+    const row = { ...m, co };
     const prev = bestByLab.get(key);
     if (!prev || (Number(m.idx) || 0) > (Number(prev.idx) || 0)) {
-      bestByLab.set(key, m);
+      bestByLab.set(key, row);
     }
   }
   return [...bestByLab.values()]

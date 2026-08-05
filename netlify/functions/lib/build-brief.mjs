@@ -172,6 +172,30 @@ const FRONTIER_COMPANIES = [
   { label: "Mistral", match: (co) => /mistral/i.test(co) },
 ];
 
+/**
+ * AA's model_creator.name is often a product/codename (SpaceXAI, Kimi, Z AI).
+ * Map those to the public lab names we want to show.
+ */
+const LAB_DISPLAY_ALIASES = [
+  { display: "xAI", match: /^(spacexai|xai)$/i },
+  { display: "Moonshot AI", match: /^(kimi|moonshot|moonshot ai)$/i },
+  { display: "Google DeepMind", match: /^(google|google deepmind|deepmind|google gemini)$/i },
+  { display: "Alibaba (Qwen)", match: /^(alibaba|alibaba cloud|qwen)$/i },
+  { display: "Zhipu (GLM)", match: /^(z ai|zai|zhipu|zhipu ai)$/i },
+];
+
+export function canonicalizeLabName(name, slug = "") {
+  const candidates = [name, slug]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  for (const candidate of candidates) {
+    for (const rule of LAB_DISPLAY_ALIASES) {
+      if (rule.match.test(candidate)) return rule.display;
+    }
+  }
+  return String(name || "").trim() || "Unknown";
+}
+
 function modelKey(co, model) {
   return `${String(co || "").trim()}|${String(model || "").trim()}`;
 }
@@ -212,11 +236,14 @@ function mapAAModel(m) {
   const modality = m.modality ?? m.modalities ?? null;
   const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
   const creator = m.model_creator || m.creator || {};
-  const co = creator.name || "Unknown";
+  const coRaw = creator.name || "Unknown";
+  const creatorSlug = creator.slug || "";
   const model = m.name || "";
   return {
-    co,
-    creatorId: creator.id || creator.slug || "",
+    coRaw,
+    co: canonicalizeLabName(coRaw, creatorSlug),
+    creatorId: creator.id || "",
+    creatorSlug,
     model,
     ver: m.version || "",
     date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
@@ -230,12 +257,13 @@ function mapAAModel(m) {
   };
 }
 
-/** Stable lab key: prefer creator id/slug, else normalized display name. */
+/**
+ * Stable lab key using canonical display name so aliases collapse
+ * (SpaceXAI/xAI, Kimi/Moonshot AI, Alibaba/Qwen, etc.).
+ */
 function labDedupeKey(m) {
-  const id = String(m.creatorId || "").trim();
-  if (id) return `id:${id.toLowerCase()}`;
-  const name = String(m.co || "Unknown").trim().toLowerCase() || "unknown";
-  return `name:${name}`;
+  const display = canonicalizeLabName(m.coRaw || m.co, m.creatorSlug);
+  return `lab:${display.trim().toLowerCase()}`;
 }
 
 /**
@@ -249,7 +277,10 @@ export function fetchAllLabsFromAA(mapped, limit = 20) {
     const key = labDedupeKey(m);
     const prev = bestByLab.get(key);
     if (!prev || Number(m.idx) > Number(prev.idx)) {
-      bestByLab.set(key, m);
+      bestByLab.set(key, {
+        ...m,
+        co: canonicalizeLabName(m.coRaw || m.co, m.creatorSlug),
+      });
     }
   }
 
@@ -277,8 +308,11 @@ export function fetchAllLabsFromAA(mapped, limit = 20) {
     throw new Error("All Labs dedupe failed: duplicate lab names remain");
   }
 
+  const rawCreators = [...new Set((mapped || []).map((m) => m.coRaw || m.co).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
   console.log(
-    `All Labs deduped: ${mapped?.length || 0} models → ${unique.length} unique labs`,
+    `All Labs: ${mapped?.length || 0} scored models → ${bestByLab.size} unique labs (returning ${unique.length}). Raw creators (${rawCreators.length}): ${rawCreators.join(", ")}`,
   );
   return unique;
 }
@@ -312,15 +346,23 @@ export async function fetchModelsFromAA() {
     throw new Error("Artificial Analysis returned no models with intelligence index");
   }
 
+  const rawCreatorNames = [...new Set(mapped.map((m) => m.coRaw).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  console.log(
+    `AA raw unique creators with intelligence index (${rawCreatorNames.length}): ${rawCreatorNames.join(", ")}`,
+  );
+
   const sorted = mapped.slice().sort((a, b) => b.idx - a.idx);
 
-  // One row per lab: best model, top 20 labs by intelligence index.
+  // One row per lab across ALL scored models (not top-20 models).
+  // This is what populates All Labs — must run before any model slice.
   const all = fetchAllLabsFromAA(mapped, 20);
 
   // Best model per frontier lab, then keep the top 7 labs by intelligence index.
   const frontier = [];
   for (const company of FRONTIER_COMPANIES) {
-    const best = sorted.find((m) => company.match(m.co));
+    const best = sorted.find((m) => company.match(m.coRaw || m.co));
     if (!best) continue;
     frontier.push({
       ...best,
