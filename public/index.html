@@ -171,6 +171,16 @@
     text-transform: uppercase;
     color: var(--dim);
   }
+  .model.frontier .rank-co {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .model.frontier .rank-co .rank {
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
   .model.frontier .co-name {
     font-family: 'Archivo', sans-serif;
     font-weight: 800;
@@ -181,7 +191,6 @@
     line-height: 1.15;
   }
   .model.frontier .model-sub {
-    margin-top: 4px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
     color: var(--dim);
@@ -205,19 +214,10 @@
   .streak {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
+    font-weight: 400;
+    color: var(--dim);
     margin-left: 8px;
     vertical-align: middle;
-  }
-  .streak.new {
-    color: var(--klein);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 10px;
-  }
-  .streak.days {
-    color: var(--dim);
-    font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
   }
@@ -418,21 +418,26 @@ function modelNameHtml(m) {
   return linked;
 }
 
+function dayCountLabel(n) {
+  const days = Math.max(1, Number(n) || 1);
+  return days === 1 ? '1 day on list' : `${days} days on list`;
+}
+
 function formatStreak(streak) {
   if (!streak) return '';
   const raw = String(streak).trim();
-  if (raw.toUpperCase() === 'NEW') return 'NEW';
+  if (raw.toUpperCase() === 'NEW') return dayCountLabel(1);
   const short = raw.match(/^(\d+)d$/i);
-  if (short) return `${short[1]} days on the list`;
+  if (short) return dayCountLabel(short[1]);
+  const long = raw.match(/^(\d+)\s*days?\s+on(?:\s+the)?\s+list$/i);
+  if (long) return dayCountLabel(long[1]);
   return raw;
 }
 
 function streakHtml(streak) {
   const label = formatStreak(streak);
   if (!label) return '';
-  const isNew = label.toUpperCase() === 'NEW';
-  const cls = isNew ? 'streak new' : 'streak days';
-  return `<span class="${cls}">${esc(label)}</span>`;
+  return `<span class="streak">${esc(label)}</span>`;
 }
 
 function normalizeModels(models) {
@@ -448,8 +453,10 @@ function renderFrontierCard(m, rank) {
   const idx = Math.max(0, Math.min(100, Number(m.idx) || 0));
   return `<div class="model frontier">
     <div>
-      <div class="rank">${rank}</div>
-      <div class="co-name">${esc(m.co)}</div>
+      <div class="rank-co">
+        <div class="rank">${rank}</div>
+        <div class="co-name">${esc(m.co)}</div>
+      </div>
       <div class="model-sub">${modelNameHtml(m)}${streakHtml(m.streak)}</div>
     </div>
     <div class="idxwrap">

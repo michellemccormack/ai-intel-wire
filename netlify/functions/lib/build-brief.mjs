@@ -186,12 +186,11 @@ function parseYmd(ymd) {
   return Date.UTC(y, m - 1, d);
 }
 
-/** Day 1 → NEW; day 2+ → "N days on the list". */
+/** Calendar days on the frontier list: "1 day on list", "2 days on list", … */
 function streakLabel(firstDateStr, todayStr) {
   const days = Math.round((parseYmd(todayStr) - parseYmd(firstDateStr)) / 86_400_000);
-  if (!Number.isFinite(days) || days <= 0) return "NEW";
-  const n = days + 1;
-  return `${n} days on the list`;
+  const n = !Number.isFinite(days) || days <= 0 ? 1 : days + 1;
+  return n === 1 ? "1 day on list" : `${n} days on list`;
 }
 
 function modelUrlFromAA(m) {
@@ -288,12 +287,8 @@ export async function fetchModelsFromAA() {
 
   for (const m of frontier) {
     const key = modelKey(m.co, m.model);
-    if (!nextStreaks[key]) {
-      nextStreaks[key] = today;
-      m.streak = "NEW";
-    } else {
-      m.streak = streakLabel(nextStreaks[key], today);
-    }
+    if (!nextStreaks[key]) nextStreaks[key] = today;
+    m.streak = streakLabel(nextStreaks[key], today);
   }
 
   await store.setJSON("model-streaks", nextStreaks);
