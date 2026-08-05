@@ -370,13 +370,16 @@
 </main>
 
 <div class="signup" aria-label="Newsletter signup">
-  <div class="signup-embed">
-    <div class="signup-label">Get notified when I build something new</div>
-    <div class="signup-beehiiv">
-      <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
-      <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
+  <div id="signup-container">
+    <div class="signup-embed">
+      <div class="signup-label">Get notified when I build something new</div>
+      <div class="signup-beehiiv">
+        <script async src="https://subscribe-forms.beehiiv.com/v3/loader.js" data-beehiiv-form="77db7046-0003-48fc-b270-4474ae3eff45"></script>
+        <script type="text/javascript" async src="https://subscribe-forms.beehiiv.com/attribution.js"></script>
+      </div>
     </div>
   </div>
+  <div id="signup-success" style="display: none; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; text-transform: uppercase; color: var(--dim); letter-spacing: 0.12em; padding: 40px 24px;">Done. You're subscribed.</div>
 </div>
 
 <footer>
@@ -607,6 +610,51 @@ async function manualRefresh() {
 
 $('refreshBtn').addEventListener('click', manualRefresh);
 loadSnapshot();
+
+(function () {
+  const container = document.getElementById('signup-container');
+  const success = document.getElementById('signup-success');
+  if (!container || !success) return;
+
+  let shown = false;
+  function showSignupSuccess() {
+    if (shown) return;
+    shown = true;
+    container.style.display = 'none';
+    success.style.display = 'block';
+    if (toastObserver) toastObserver.disconnect();
+  }
+
+  function isBeehiivOrigin(origin) {
+    try {
+      const host = new URL(origin).hostname;
+      return host === 'subscribe-forms.beehiiv.com' || host.endsWith('.beehiiv.com');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isBeehiivSuccess(data) {
+    if (!data || typeof data !== 'object') return false;
+    return data.type === 'beehiiv:success-toast' || data.type === 'beehiiv:submitted';
+  }
+
+  window.addEventListener('message', (event) => {
+    if (!isBeehiivOrigin(event.origin)) return;
+    if (isBeehiivSuccess(event.data)) showSignupSuccess();
+  });
+
+  // Fallback: Beehiiv loader injects #beehiiv-toast on the parent page after success
+  const toastObserver = new MutationObserver(() => {
+    const toast = document.getElementById('beehiiv-toast');
+    if (!toast) return;
+    const text = (toast.textContent || '').toLowerCase();
+    if (text.includes('done') || text.includes('subscrib') || text.includes('success') || toast.id === 'beehiiv-toast') {
+      showSignupSuccess();
+    }
+  });
+  toastObserver.observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 </body>
 </html>
