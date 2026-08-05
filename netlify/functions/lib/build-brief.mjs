@@ -160,7 +160,77 @@ async function callClaude(prompt, { model, webSearch = false, maxTokens = 2000, 
   throw lastErr;
 }
 
-/** Fetch top models from Artificial Analysis (not Claude). */
+/** Frontier companies: best single model from each, matched against AA creator names. */
+const FRONTIER_COMPANIES = [
+  { label: "OpenAI", match: (co) => /openai/i.test(co) },
+  { label: "Anthropic", match: (co) => /anthropic/i.test(co) },
+  { label: "Google DeepMind", match: (co) => /google|deepmind/i.test(co) },
+  { label: "xAI", match: (co) => /\bxai\b/i.test(co) },
+  { label: "Meta", match: (co) => /^(meta|facebook)\b|\bmeta ai\b/i.test(co) },
+  { label: "DeepSeek", match: (co) => /deepseek/i.test(co) },
+  { label: "Alibaba (Qwen)", match: (co) => /alibaba|qwen/i.test(co) },
+  { label: "Mistral", match: (co) => /mistral/i.test(co) },
+];
+
+function modelKey(co, model) {
+  return `${String(co || "").trim()}|${String(model || "").trim()}`;
+}
+
+/** Calendar date in America/New_York as YYYY-MM-DD. */
+function todayEtDateStr() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+
+function parseYmd(ymd) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+/** Day 1 → NEW; subsequent calendar days → 2d, 3d, … */
+function streakLabel(firstDateStr, todayStr) {
+  const days = Math.round((parseYmd(todayStr) - parseYmd(firstDateStr)) / 86_400_000);
+  if (!Number.isFinite(days) || days <= 0) return "NEW";
+  return `${days + 1}d`;
+}
+
+function modelUrlFromAA(m) {
+  const raw = m.url || m.model_page_url || m.model_url || m.page_url || "";
+  if (typeof raw !== "string") return "";
+  const url = raw.trim();
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/")) return `https://artificialanalysis.ai${url}`;
+  return "";
+}
+
+function mapAAModel(m) {
+  const idx = m?.evaluations?.artificial_analysis_intelligence_index;
+  if (idx == null || !Number.isFinite(Number(idx))) return null;
+  const modality = m.modality ?? m.modalities ?? null;
+  const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
+  const co = m.model_creator?.name || m.creator?.name || "Unknown";
+  const model = m.name || "";
+  return {
+    co,
+    model,
+    ver: m.version || m.slug || "",
+    date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
+    cap: modalityLabel(modality),
+    mode: formatModality(modality),
+    ctx: formatContextWindow(ctxTokens),
+    access: m.access || m.licensing?.type || "API",
+    idx: Math.round(Number(idx)),
+    url: modelUrlFromAA(m),
+    new: "",
+  };
+}
+
+/**
+ * Fetch models from Artificial Analysis.
+ * Returns { frontier, all, streaks } where frontier is best-per-company
+ * for the tracked labs, all is top 20 overall, and streaks is the
+ * persisted first-seen map written to the blob store.
+ */
 export async function fetchModelsFromAA() {
   if (!process.env.AA_API_KEY) {
     throw new Error("AA_API_KEY environment variable is not set");
@@ -179,32 +249,52 @@ export async function fetchModelsFromAA() {
   const payload = await res.json();
   const rows = Array.isArray(payload) ? payload : payload.data || payload.models || [];
 
-  const models = rows
-    .map((m) => {
-      const idx = m?.evaluations?.artificial_analysis_intelligence_index;
-      if (idx == null || !Number.isFinite(Number(idx))) return null;
-      const modality = m.modality ?? m.modalities ?? null;
-      const ctxTokens = m.context_window ?? m.context_window_tokens ?? null;
-      return {
-        co: m.model_creator?.name || m.creator?.name || "Unknown",
-        model: m.name || "",
-        ver: m.version || m.slug || "",
-        date: formatReleaseDate(m.release_date || m.releaseDate || m.released_at || ""),
-        cap: modalityLabel(modality),
-        mode: formatModality(modality),
-        ctx: formatContextWindow(ctxTokens),
-        access: m.access || m.licensing?.type || "API",
-        idx: Math.round(Number(idx)),
-        new: "",
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.idx - a.idx)
-    .slice(0, 20);
+  const mapped = rows.map(mapAAModel).filter(Boolean);
+  if (!mapped.length) {
+    throw new Error("Artificial Analysis returned no models with intelligence index");
+  }
 
-  if (!models.length) throw new Error("Artificial Analysis returned no models with intelligence index");
-  console.log(`AA models fetched: ${models.length}`);
-  return models;
+  const sorted = mapped.slice().sort((a, b) => b.idx - a.idx);
+
+  const all = sorted.slice(0, 20).map((m) => ({
+    co: m.co,
+    model: m.model,
+    idx: m.idx,
+    url: m.url || "",
+  }));
+
+  const frontier = [];
+  for (const company of FRONTIER_COMPANIES) {
+    const best = sorted.find((m) => company.match(m.co));
+    if (!best) continue;
+    frontier.push({
+      ...best,
+      co: company.label,
+      new: "",
+    });
+  }
+  frontier.sort((a, b) => b.idx - a.idx);
+
+  const store = blobStore();
+  const streaks = (await store.get("model-streaks", { type: "json" })) || {};
+  const today = todayEtDateStr();
+  const nextStreaks = { ...streaks };
+
+  for (const m of frontier) {
+    const key = modelKey(m.co, m.model);
+    if (!nextStreaks[key]) {
+      nextStreaks[key] = today;
+      m.streak = "NEW";
+    } else {
+      m.streak = streakLabel(nextStreaks[key], today);
+    }
+  }
+
+  await store.setJSON("model-streaks", nextStreaks);
+  console.log(
+    `AA models fetched: frontier=${frontier.length}, all=${all.length}, streaks=${Object.keys(nextStreaks).length}`,
+  );
+  return { frontier, all, streaks: nextStreaks };
 }
 
 /** Fetch recent AI headlines from NewsAPI, then pick/format top 5 via Claude. */
@@ -304,7 +394,7 @@ export async function buildBrief() {
   const store = blobStore();
   const prior =
     (await store.get("snapshot", { type: "json" })) || {
-      models: [],
+      models: { frontier: [], all: [] },
       news: { stories: [], advice: {} },
     };
 
@@ -315,11 +405,11 @@ export async function buildBrief() {
   ]);
   const [modelsRes, newsRes, adviceRes] = results;
 
-  const models = modelsRes.status === "fulfilled" ? modelsRes.value : null;
+  const modelsPayload = modelsRes.status === "fulfilled" ? modelsRes.value : null;
   const newsPayload = newsRes.status === "fulfilled" ? newsRes.value : null;
   const advice = adviceRes.status === "fulfilled" ? adviceRes.value : null;
 
-  if (!models && !newsPayload && !advice) {
+  if (!modelsPayload && !newsPayload && !advice) {
     const errs = results
       .map((r) => (r.status === "rejected" ? r.reason?.message : "ok"))
       .join(" | ");
@@ -336,19 +426,34 @@ export async function buildBrief() {
     }
   }
 
+  const priorModels = normalizeModelsPayload(prior.models);
+  const models = modelsPayload
+    ? { frontier: modelsPayload.frontier, all: modelsPayload.all }
+    : priorModels;
+
   const snapshot = {
     ts: Date.now(),
-    models: models || prior.models,
+    models,
     news: {
       stories: newsPayload?.stories || prior.news?.stories || [],
       advice: advice || prior.news?.advice || {},
     },
-    partial: !(models && newsPayload && advice),
+    partial: !(modelsPayload && newsPayload && advice),
   };
 
   await store.setJSON("snapshot", snapshot);
   console.log(
-    `Brief saved. models=${snapshot.models.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
+    `Brief saved. frontier=${snapshot.models.frontier.length}, all=${snapshot.models.all.length}, news=${snapshot.news.stories.length}, partial=${snapshot.partial}`,
   );
   return snapshot;
+}
+
+/** Normalize legacy array snapshots into { frontier, all }. */
+function normalizeModelsPayload(models) {
+  if (!models) return { frontier: [], all: [] };
+  if (Array.isArray(models)) return { frontier: models, all: models };
+  return {
+    frontier: Array.isArray(models.frontier) ? models.frontier : [],
+    all: Array.isArray(models.all) ? models.all : [],
+  };
 }
