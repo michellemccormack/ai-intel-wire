@@ -186,11 +186,12 @@ function parseYmd(ymd) {
   return Date.UTC(y, m - 1, d);
 }
 
-/** Day 1 → NEW; subsequent calendar days → 2d, 3d, … */
+/** Day 1 → NEW; day 2+ → "N days on the list". */
 function streakLabel(firstDateStr, todayStr) {
   const days = Math.round((parseYmd(todayStr) - parseYmd(firstDateStr)) / 86_400_000);
   if (!Number.isFinite(days) || days <= 0) return "NEW";
-  return `${days + 1}d`;
+  const n = days + 1;
+  return `${n} days on the list`;
 }
 
 function modelUrlFromAA(m) {
@@ -266,6 +267,7 @@ export async function fetchModelsFromAA() {
     url: m.url || "",
   }));
 
+  // Best model per frontier lab, then keep the top 7 labs by intelligence index.
   const frontier = [];
   for (const company of FRONTIER_COMPANIES) {
     const best = sorted.find((m) => company.match(m.co));
@@ -277,6 +279,7 @@ export async function fetchModelsFromAA() {
     });
   }
   frontier.sort((a, b) => b.idx - a.idx);
+  frontier.splice(7);
 
   const store = blobStore();
   const streaks = (await store.get("model-streaks", { type: "json" })) || {};
