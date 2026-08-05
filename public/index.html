@@ -111,8 +111,9 @@
   .tab:last-child { border-right: none; }
   .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--klein); font-weight: 600; }
   main { padding: 0 0 60px; }
-  section { display: none; }
-  section.active { display: block; }
+  /* Only tab panels inside main — do not hide other <section>s (e.g. signup). */
+  main section { display: none; }
+  main section.active { display: block; }
   .status {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
