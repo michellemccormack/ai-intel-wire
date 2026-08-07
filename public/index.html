@@ -373,21 +373,21 @@
 
 <nav>
   <div class="shell">
-  <button class="tab active" data-tab="models">Today's Top Models</button>
-  <button class="tab" data-tab="news">Top 5 News</button>
+  <button class="tab active" data-tab="news">Top 5 News</button>
+  <button class="tab" data-tab="models">Today's Top Models</button>
   <button class="tab" data-tab="advice">Today's Assignment</button>
   </div>
 </nav>
 
 <main>
   <div class="shell">
-  <section id="models" class="active">
-    <div class="status" id="modelsStatus">Loading the model index…</div>
-    <div id="modelsList"></div>
-  </section>
-  <section id="news">
-    <div class="status" id="newsStatus"></div>
+  <section id="news" class="active">
+    <div class="status" id="newsStatus">Loading the brief…</div>
     <div id="newsList"></div>
+  </section>
+  <section id="models">
+    <div class="status" id="modelsStatus"></div>
+    <div id="modelsList"></div>
   </section>
   <section id="advice">
     <div class="status" id="adviceStatus"></div>
@@ -548,18 +548,18 @@ async function loadSnapshot() {
   try {
     const res = await fetch('/api/brief', { cache: 'no-store' });
     if (!res.ok) {
-      $('modelsStatus').textContent = 'No brief published yet. First refresh pending.';
+      $('newsStatus').textContent = 'No brief published yet. First refresh pending.';
       $('updatedStamp').textContent = 'Not yet updated';
       return null;
     }
     const snap = await res.json();
-    if (snap.models) renderModels(snap.models);
     if (snap.news) renderNews(snap.news);
+    if (snap.models) renderModels(snap.models);
     $('updatedStamp').textContent = 'Last updated ' + new Date(snap.ts).toLocaleString();
     return snap;
   } catch (e) {
-    $('modelsStatus').textContent = 'Could not load the brief. Try again shortly.';
-    $('modelsStatus').classList.add('err');
+    $('newsStatus').textContent = 'Could not load the brief. Try again shortly.';
+    $('newsStatus').classList.add('err');
     return null;
   }
 }
